@@ -1,27 +1,6 @@
 import telebot
 from telebot import types
-def connect_database():
-    import psycopg2
-    conn = psycopg2.connect(database='postgres',
-                            user='root',
-                            host='himalayas.liara.cloud',
-                            password='M5cdvDnzgYo8Y9sW9FDJz3ra',
-                            port=31190)
-    return conn
-def retrieve_Query(query):
-    conn = connect_database()
-    cur = conn.cursor()
-    cur.execute(query)
-    rows = cur.fetchall()
-    conn.commit()
-    conn.close()
-    return rows
-def dml_query(query): #data manuplating language form
-    conn = connect_database()
-    cur = conn.cursor()
-    cur.execute(query)
-    conn.commit()
-    conn.close()
+from database import dml_Query, retrieve_Query
 
 bot = telebot.TeleBot('[REDACTED]')
 
@@ -52,7 +31,7 @@ def add_task(message):
         time_type = 'Absolute'
 
 
-    dml_query(f"INSERT INTO tasks( chat_id , timetype , time , description) VALUES ({message.chat.id}, '{time_type}', '{args[1]}+{args[2]}', '{args[3]}')")
+    dml_Query(f"INSERT INTO tasks( chat_id , timetype , time , description) VALUES ({message.chat.id}, '{time_type}', '{args[1]}+{args[2]}', '{args[3]}')")
     bot.send_message(message.chat.id,'information stored successfully!')
 
 @bot.message_handler(commands=['help'])
