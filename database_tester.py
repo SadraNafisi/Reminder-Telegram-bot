@@ -1,10 +1,9 @@
-from main import TaskTable,takeConfigScheduler,DatabaseManager
-
+from reminder_timer_db import TaskTable,takeConfigScheduler,DatabaseManager
 import time
 def send_helloworld():
     print('hello world')
 scheduler = takeConfigScheduler()
-job=scheduler.add_job(send_helloworld,'interval',seconds=10)
+job=scheduler.add_job(send_helloworld,'date',run_date='2024-10-25 18:16:00')
 task=TaskTable(chat_id=123,timetype='Absolute',date_or_relativetime='2023/03/03'
 ,time='20:20:20',description='alaki',apscheduler_job_id=job.id)
 scheduler.start()

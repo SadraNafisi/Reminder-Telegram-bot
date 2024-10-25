@@ -1,38 +1,12 @@
-import re
-from datetime import datetime
+from pattern import is_outdated, is_date_today, is_time_expired, is_validate_relative_time, is_validate_time_format, tomorrow_date
+from pattern import string_to_date, string_to_time
 import telebot
 from telebot import types
-from database import TaskTable, TaskTableManagement, takeConfigScheduler
+from datetime import datetime
+from reminder_timer_db import TaskTable, TaskTableManagement, takeConfigScheduler
 
-
-
-
-def is_valid_date(date_string):
-    try:
-        # Try to parse the date string
-        datetime.strptime(date_string, '%Y/%m/%d')
-        return True  # If parsing is successful, the format is valid
-    except ValueError:
-        return False  # If parsing fails, the format is invalid
-def is_validate_relative_time(time_string):
-    # Define the regex pattern for "number" (hour/min/sec)
-    pattern = r'^\d+\s*(hour|min|sec)$'
-    try:
-        # Check if the time_string matches the pattern
-        if re.match(pattern, time_string):
-            return True  # Valid format
-    except ValueError:
-        return False  # Invalid format
-
-def is_validate_time_format(time_string):
-    try:
-        # Attempt to parse the time_string
-        datetime.strptime(time_string, '%H:%M:%S')
-        return True  # Valid format
-    except ValueError:
-        return False  # Invalid format
-
-
+scheduler = takeConfigScheduler()
+scheduler.start()
 bot = telebot.TeleBot('[REDACTED]')
 class Task:
     def __init__(self):
@@ -52,15 +26,24 @@ class Task:
             return True
         else:
             return False
-
+def send_notif(tsk,chat_id):
+    bot.send_message(chat_id,f'alert ⚠️:\n {tsk.description}')
 def store_task(message,tsk):
-    scheduler = takeConfigScheduler()
-    
+    if not(tsk.is_relative()):
+        job=scheduler.add_job(send_notif,'date',run_date=tsk.date_or_relativetime.replace('/', '-')+' '+ tsk.time,
+        args=[tsk, message.chat.id])
+    else:
+        hour,minute,second = tsk.date_or_relativetime.split(':')
+        job = scheduler.add_job(send_notif,'interval',hours=int(hour),minutes=int(minute),seconds=int(second),
+        start_date=datetime.combine((tomorrow_date() if is_time_expired(tsk.time) else datetime.now().date()), string_to_time(tsk.time)),
+        args=[tsk,message.chat.id] )
+    scheduler.start()
     if isinstance(tsk, Task):
         task_table = TaskTable(chat_id=message.chat.id,timetype=tsk.timetype,date_or_relativetime=tsk.date_or_relativetime
         ,time=tsk.time,description=tsk.description,apscheduler_job_id=job.id)
+        task_table.add_task()
     else:
-        raise ValueError('Error:the parameter enter in store_task() is not object Task class')
+        raise ValueError('the parameter entered in store_task() is not object Task class')
 
 
 def cancel_message(message):
@@ -94,11 +77,10 @@ def ask_timetype(message,tsk):#should bring the question in here
     next_arg=''
     if(text.lower() =='rel'):
         timetype='Relative'
-        next_arg=('relative time(("number" (hour/min/sec)) / cancel)\n f.g:'
-                  'for each 6 hours you just write "6 hour"')
+        next_arg=('enter you interval time in "hour:min:sec" format\n f.g: for each 6 hour write: 6:0:0')
     elif(text.lower() == 'abs'):
         timetype = 'Absolute'
-        next_arg = ('date ((yyyy/mm/dd)/cancel)\n f.g: 2025/03/08)')
+        next_arg = ('enter you date in ((yyyy/mm/dd)/cancel) form\n f.g: 2025/03/08)')
     elif(text.lower() == 'cancel'):
         cancel_message(message)
         return
@@ -116,22 +98,29 @@ def ask_date_or_relativetime(message,tsk):
     if(text.lower() == 'cancel'):
         cancel_message(message)
         return
-    if ((tsk.timetype == 'Absolute' and is_valid_date(text)) or
+    try:
+        if ((tsk.timetype == 'Absolute' and is_outdated(text)==False) or
             (tsk.timetype == 'Relative' and is_validate_relative_time(text))):
-        tsk.date_or_relativetime = text
-        msg=bot.send_message(message.chat.id, ('Relative' if tsk.is_relative() else 'Absolute')
-                             +' time taken successfully')
-    else:
-        msg=bot.send_message(message.chat.id,('you enter date form wrong . remember the patern should be like'
-                                         'this: "yyyy/mm/dd", please enter again or send "cancel" text.' if tsk.is_relative() == True
-                                          else 'your relative time is wrong. remember the pattern should be'
-                                          'like this:\n'
-                                          '"number" (hour/min/sec) or cancel task by text "cancel"!'))
+            tsk.date_or_relativetime = text
+            msg=bot.send_message(message.chat.id, ('Relative' if tsk.is_relative() else 'Absolute')
+                                +' time taken successfully')
+                                
+        else:
+            msg=bot.send_message(message.chat.id,('your interval time is wrong. remember the pattern should be'
+                                            'like this: hour:min:sec\n'
+                                            ' or cancel task by text "cancel"!' if tsk.is_relative()
+                                            else 'your date is outdated, please enter again or send "cancel" text.' ))
+            bot.register_next_step_handler(msg,ask_date_or_relativetime,tsk)
+            return
+    except ValueError as e:
+        msg=bot.send_message(message.chat.id,str(e)+'please try again! or send "cancel" text.')
         bot.register_next_step_handler(msg,ask_date_or_relativetime,tsk)
-        return
+        return 
+
+    
     bot.send_message(message.chat.id, 'what time do you want to '
-                     + ('trigger' if tsk.timetype != 'Relative' else 'start from')+' ?'
-                        ' you can cancel also by sending "cancel"!!')
+                     + ('trigger' if tsk.is_relative()==False else 'start from')+' ?'
+                        'you should time format like:"hour:min:sec" you can cancel also by sending "cancel"!!')
     bot.register_next_step_handler(msg, ask_time, tsk)
 
 
@@ -154,15 +143,21 @@ def ask_time(message,tsk):
     if(text.lower() == 'cancel'):
         cancel_message(message)
         return
+
     if is_validate_time_format(text):
+        if (not tsk.is_relative()) and is_time_expired(text):
+            msg = bot.send_message(message.chat.id,'The input time is expired, try enter another time')
+            bot.register_next_step_handler(msg,ask_time,tsk)
+            return 
         tsk.time=text
-        msg = bot.send_message(message.chat.id, ('Begin'if tsk.timetype=='Relative' else'The')+
+        msg = bot.send_message(message.chat.id, ('Begin'if tsk.is_relative() else'The')+
                                'time has been taken successfully ')
     else:
-        msg = bot.send_message(message.chat.id, 'the time format was wrong.'
+        msg = bot.send_message(message.chat.id, 'the time format or time range was wrong.'
                                                 ' remeber the pattern is "h:m:s"')
         bot.register_next_step_handler(msg,ask_time,tsk)
         return
+
     bot.send_message(message.chat.id,'write you description about the task!')
     bot.register_next_step_handler(msg, ask_description, tsk)
     
@@ -173,6 +168,7 @@ def ask_description(message,tsk):
                                      'The task information:\n'
                                      ''+str(tsk))
     store_task(message,tsk)
+
 # def ask_datetime(message):
     # args = text.split(',')
     # time_type=''

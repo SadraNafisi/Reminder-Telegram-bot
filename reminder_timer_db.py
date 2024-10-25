@@ -5,7 +5,7 @@ import time
 from sqlalchemy import create_engine, ForeignKey, Column, Integer, Unicode , TEXT, CheckConstraint, Time, Table
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, validates, relationship
-from Reminder_timer import is_valid_date,is_validate_relative_time
+from pattern import is_valid_date, is_validate_time_format, is_validate_relative_time
 Base = declarative_base()
 url= 'database_url'
 engine = create_engine(url)
@@ -59,9 +59,6 @@ class DatabaseManager:
         return self.Session()
 
     
-    
-    
-
 class TaskTable(Base):
     __tablename__ = 'tasks'
     id = Column(Integer, primary_key=True, autoincrement=True)
