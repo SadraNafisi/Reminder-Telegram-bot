@@ -70,7 +70,7 @@ def ask_task(message):
     msg= bot.reply_to(message,'what kind of timetype do you want create?'
                               'Relative or Absolute(rel/abs/cancel)?')
     bot.register_next_step_handler(msg,ask_timetype,tsk)
-def ask_timetype(message,tsk):#should bring the question in here
+def ask_timetype(message,tsk):
 
     text = message.text
     timetype=''
@@ -122,21 +122,6 @@ def ask_date_or_relativetime(message,tsk):
                      + ('trigger' if tsk.is_relative()==False else 'start from')+' ?'
                         'you should time format like:"hour:min:sec" you can cancel also by sending "cancel"!!')
     bot.register_next_step_handler(msg, ask_time, tsk)
-
-
-# def ask_relativetime(message,tsk):#should bring the question in here
-#     text = message.text
-#     if (text.lower() == 'cancel'):
-#         cancel_message(message)
-#         return
-#     if is_validate_relative_time(text):
-#         tsk.date_or_relativetime = text
-#         msg=bot.send_message(message.chat.id, 'relative time taken successfully')
-#     else:
-#         msg = bot.send_message(message.chat.id, 'your relative time is wrong. remember the pattern should be'
-#                                           'like this:\n'
-#                                           '"number" (hour/min/sec) or cancel task by text "cancel"!')
-#         bot.register_next_step_handler(msg,ask_relativetime,tsk)
 
 def ask_time(message,tsk):
     text = message.text
