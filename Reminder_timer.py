@@ -30,14 +30,15 @@ def send_notif(tsk,chat_id):
     bot.send_message(chat_id,f'alert ⚠️:\n {tsk.description}')
 def store_task(message,tsk):
     if not(tsk.is_relative()):
+        chat_id = message.chat.id
+        timezone= 'Asia/Tehran'
         job=scheduler.add_job(send_notif,'date',run_date=tsk.date_or_relativetime.replace('/', '-')+' '+ tsk.time,
-        args=[tsk, message.chat.id])
+        args=[tsk, message.chat.id],timezone=timezone)
     else:
         hour,minute,second = tsk.date_or_relativetime.split(':')
         job = scheduler.add_job(send_notif,'interval',hours=int(hour),minutes=int(minute),seconds=int(second),
         start_date=datetime.combine((tomorrow_date() if is_time_expired(tsk.time) else datetime.now().date()), string_to_time(tsk.time)),
-        args=[tsk,message.chat.id] )
-    scheduler.start()
+        args=[tsk,message.chat.id],timezone=timezone)
     if isinstance(tsk, Task):
         task_table = TaskTable(chat_id=message.chat.id,timetype=tsk.timetype,date_or_relativetime=tsk.date_or_relativetime
         ,time=tsk.time,description=tsk.description,apscheduler_job_id=job.id)
