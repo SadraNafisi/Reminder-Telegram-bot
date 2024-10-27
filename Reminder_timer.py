@@ -37,7 +37,7 @@ def store_task(message,tsk):
     else:
         hour,minute,second = tsk.date_or_relativetime.split(':')
         job = scheduler.add_job(send_notif,'interval',hours=int(hour),minutes=int(minute),seconds=int(second),
-        start_date=datetime.combine((tomorrow_date() if is_time_expired(tsk.date_or_relativetime,tsk.time) else datetime.now().date()), string_to_time(tsk.time)),
+        start_date=datetime.combine((tomorrow_date() if is_time_expired(datetime.now().date(),tsk.time) else datetime.now().date()), string_to_time(tsk.time)),
         args=[tsk, chat_id],timezone=timezone)
     if isinstance(tsk, Task):
         task_table = TaskTable(chat_id=message.chat.id,timetype=tsk.timetype,date_or_relativetime=tsk.date_or_relativetime
@@ -105,7 +105,7 @@ def ask_date_or_relativetime(message,tsk):
             tsk.date_or_relativetime = text
             msg=bot.send_message(message.chat.id, ('Relative' if tsk.is_relative() else 'Absolute')
                                 +' time taken successfully')
-                                
+
         else:
             msg=bot.send_message(message.chat.id,('your interval time is wrong. remember the pattern should be'
                                             'like this: hour:min:sec\n'
@@ -116,9 +116,9 @@ def ask_date_or_relativetime(message,tsk):
     except ValueError as e:
         msg=bot.send_message(message.chat.id,str(e)+'please try again! or send "cancel" text.')
         bot.register_next_step_handler(msg,ask_date_or_relativetime,tsk)
-        return 
+        return
 
-    
+
     bot.send_message(message.chat.id, 'what time do you want to '
                      + ('trigger' if tsk.is_relative()==False else 'start from')+' ?'
                         'you should time format like:"hour:min:sec" you can cancel also by sending "cancel"!!')
@@ -134,7 +134,7 @@ def ask_time(message,tsk):
         if  tsk.is_relative()==False and is_time_expired(tsk.date_or_relativetime,text):
             msg = bot.send_message(message.chat.id,'The input time is expired, try enter another time')
             bot.register_next_step_handler(msg,ask_time,tsk)
-            return 
+            return
         tsk.time=text
         msg = bot.send_message(message.chat.id, ('Begin'if tsk.is_relative() else'The')+
                                'time has been taken successfully ')
@@ -146,7 +146,7 @@ def ask_time(message,tsk):
 
     bot.send_message(message.chat.id,'write you description about the task!')
     bot.register_next_step_handler(msg, ask_description, tsk)
-    
+
 def ask_description(message,tsk):
     text = message.text
     tsk.description = text
@@ -158,14 +158,53 @@ def ask_description(message,tsk):
 def list_tasks(message):
     tasks=TaskTableManagement().get_tasks_by_chat_id(message.chat.id)
     msg=''
-    print(tasks)
     if tasks:
         msg='tasks format is the following format: timetype | date/relative time | description\n'
+        counter=1
         for task in tasks:
-            msg +=f'{task.timetype} | {task.date_or_relativetime} | {task.description}\n'
+            msg +=f'{counter}- {task.timetype} | {task.date_or_relativetime} | {task.description}\n'
+            counter+=1
     else:
         msg='you dont have any task yet!'
     bot.send_message(message.chat.id, msg)
+    return tasks
+
+@bot.message_handler(commands=['delete_task'])
+def ask_delete_task(message):
+    tasks=list_tasks(message)
+    if tasks:
+        msg=bot.send_message(message.chat.id,'select the number of The task you want wipe out from above list!')
+        bot.register_next_step_handler(msg, check_delete_task,tasks)
+    else:
+        return
+def check_delete_task(message,tasks):
+    try:
+        text = message.text
+        if not text.isnumeric():
+            raise ValueError('that was not a number, try again! ')
+        elif int(text)> len(tasks) or int(text)<1:
+            raise ValueError('your input number was wrong, try again! ')
+        else:
+            task=tasks[int(text)-1]
+    except Exception as e:
+        msg=bot.send_message(message.chat.id,e)
+        bot.register_next_step_handler(msg,check_delete_task,tasks)
+        return
+    msg = bot.send_message(message.chat.id,f'Chosen task\n\n timetype:{task.timetype} | date/relativetime:{task.date_or_relativetime} | description:{task.description}\n\n'
+    'Are you sure you want to delete that?(y/n)')
+    bot.register_next_step_handler(msg,delete_task,task)
+def delete_task(message,task):
+    text=message.text
+    if text.lower() in['yes','y','yeah']:
+        scheduler.remove_job(task.apscheduler_job_id)##it will automaticly remove its task too.
+        bot.send_message(message.chat.id,'task has been removed successfully! ')
+    elif text.lower() in ['no','nope','n']:
+        bot.send_message(message.chat.id,'proccess of task removing has been canceled! ')
+    else:
+        msg=bot.send_message(message.chat.id,'The input was wrong, please try again! ')
+        bot.register_next_step_handler(msg,delete_task)
+
+
 
 @bot.message_handler(commands=['help'])
 def inform_commands(message):

@@ -9,7 +9,7 @@ from pattern import is_valid_date, is_validate_time_format, is_validate_relative
 Base = declarative_base()
 # url='[REDACTED]'
 # url = 'database_url' #local_database(postgres)
-# url='[REDACTED]'#python anywhere(mysql)
+url='[REDACTED]'#python anywhere(mysql)
 engine = create_engine(url)
 Session = sessionmaker(bind=engine)
 metadata = Base.metadata
@@ -24,22 +24,31 @@ class TaskTableManagement:
                     session.commit()
                 except Exception as e:
                     session.rollback()
-                    print(f'Error:{e}')
+                    raise e
+        else:
+            raise ValueError(f'the entry was not Tasktable object:{type(tasktable)}')
     def get_task(self,task_id):
         with Session() as session:
             task=session.query(TaskTable).filter(TaskTable.id==task_id).first()
             return task
-    
+
     def get_tasks_by_chat_id(self, chat_id):
         with Session() as session:
             tasks = session.query(TaskTable).filter(TaskTable.chat_id == chat_id).all()
             return tasks
-            
+
     def get_all_tasks(self):
         with Session() as session:
             tasks=session.query(TaskTable).all()
             return tasks
-                
+    def remove_task(self,tasktable):
+        with Session() as session:
+            try:
+                session.delete(tasktable)
+                session.commit()
+            except exception as e:
+                session.rollback()
+                raise e
 
 
 class DatabaseManager:
@@ -50,14 +59,14 @@ class DatabaseManager:
 
     def create_tables(self):
         Base.metadata.create_all(bind=self.engine)
-    
+
     def get_metadata(self):
         return self.metadata
 
     def get_session(self):
         return self.Session()
 
-    
+
 class TaskTable(Base):
     __tablename__ = 'tasks'
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -82,8 +91,10 @@ class TaskTable(Base):
         return value
     def add_task(self):
         TaskTableManagement().create_task(self)
-    
-    
+    def delete_task(self):
+        TaskTableManagement().remove_task(self)
+
+
 def takeConfigScheduler():
     jobstores = {
         'default': SQLAlchemyJobStore(engine=create_engine(url), metadata=Base.metadata)
