@@ -3,7 +3,7 @@ from pattern import string_to_date, string_to_time
 import telebot
 from telebot import types
 from datetime import datetime
-from reminder_timer_db import TaskTable, TaskTableManagement, takeConfigScheduler
+from database import TaskTable, TaskTableManagement, takeConfigScheduler
 
 scheduler = takeConfigScheduler()
 scheduler.start()
@@ -57,8 +57,7 @@ def send_welcome(message):
     item1 = types.KeyboardButton('/add_task')
     item2 = types.KeyboardButton('/show_tasks')
     item3 = types.KeyboardButton('/delete_task')
-    item4 = types.KeyboardButton('⬅️')
-    markup.add(item1, item2 , item3, item4)
+    markup.add(item1, item2 , item3)
     bot.send_message(message.chat.id , ''
                                             'you can see /help for options.' , reply_markup=markup)
 @bot.message_handler(commands=['add_task'])
@@ -202,7 +201,7 @@ def delete_task(message,task):
         bot.send_message(message.chat.id,'proccess of task removing has been canceled! ')
     else:
         msg=bot.send_message(message.chat.id,'The input was wrong, please try again! ')
-        bot.register_next_step_handler(msg,delete_task)
+        bot.register_next_step_handler(msg,delete_task,task)
 
 
 
