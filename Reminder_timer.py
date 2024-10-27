@@ -29,16 +29,16 @@ class Task:
 def send_notif(tsk,chat_id):
     bot.send_message(chat_id,f'alert ⚠️:\n {tsk.description}')
 def store_task(message,tsk):
+    timezone= 'Asia/Tehran'
+    chat_id = message.chat.id
     if not(tsk.is_relative()):
-        chat_id = message.chat.id
-        timezone= 'Asia/Tehran'
         job=scheduler.add_job(send_notif,'date',run_date=tsk.date_or_relativetime.replace('/', '-')+' '+ tsk.time,
-        args=[tsk, message.chat.id],timezone=timezone)
+        args=[tsk, chat_id],timezone=timezone)
     else:
         hour,minute,second = tsk.date_or_relativetime.split(':')
         job = scheduler.add_job(send_notif,'interval',hours=int(hour),minutes=int(minute),seconds=int(second),
-        start_date=datetime.combine((tomorrow_date() if is_time_expired(tsk.time) else datetime.now().date()), string_to_time(tsk.time)),
-        args=[tsk,message.chat.id],timezone=timezone)
+        start_date=datetime.combine((tomorrow_date() if is_time_expired(tsk.date_or_relativetime,tsk.time) else datetime.now().date()), string_to_time(tsk.time)),
+        args=[tsk, chat_id],timezone=timezone)
     if isinstance(tsk, Task):
         task_table = TaskTable(chat_id=message.chat.id,timetype=tsk.timetype,date_or_relativetime=tsk.date_or_relativetime
         ,time=tsk.time,description=tsk.description,apscheduler_job_id=job.id)
@@ -55,8 +55,8 @@ def cancel_message(message):
 def send_welcome(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     item1 = types.KeyboardButton('/add_task')
-    item2 = types.KeyboardButton('/edit_task')
-    item3 = types.KeyboardButton('/show_tasks')
+    item2 = types.KeyboardButton('/show_tasks')
+    item3 = types.KeyboardButton('/delete_task')
     item4 = types.KeyboardButton('⬅️')
     markup.add(item1, item2 , item3, item4)
     bot.send_message(message.chat.id , ''
@@ -131,7 +131,7 @@ def ask_time(message,tsk):
         return
 
     if is_validate_time_format(text):
-        if (not tsk.is_relative()) and is_time_expired(text):
+        if  tsk.is_relative()==False and is_time_expired(tsk.date_or_relativetime,text):
             msg = bot.send_message(message.chat.id,'The input time is expired, try enter another time')
             bot.register_next_step_handler(msg,ask_time,tsk)
             return 
@@ -154,18 +154,18 @@ def ask_description(message,tsk):
                                      'The task information:\n'
                                      ''+str(tsk))
     store_task(message,tsk)
-
-# def ask_datetime(message):
-    # args = text.split(',')
-    # time_type=''
-    # if(args[0].lower()== 'rel'):
-    #     time_type = 'Relative'
-    # elif(args[0].lower() == 'abs'):
-    #     time_type = 'Absolute'
-
-
-    # dml_Query(f"INSERT INTO tasks( chat_id , timetype , time , description) VALUES ({message.chat.id}, '{time_type}', '{args[1]}+{args[2]}', '{args[3]}')")
-    # bot.send_message(message.chat.id,'information stored successfully!')
+@bot.message_handler(commands=['show_tasks'])
+def list_tasks(message):
+    tasks=TaskTableManagement().get_tasks_by_chat_id(message.chat.id)
+    msg=''
+    print(tasks)
+    if tasks:
+        msg='tasks format is the following format: timetype | date/relative time | description\n'
+        for task in tasks:
+            msg +=f'{task.timetype} | {task.date_or_relativetime} | {task.description}\n'
+    else:
+        msg='you dont have any task yet!'
+    bot.send_message(message.chat.id, msg)
 
 @bot.message_handler(commands=['help'])
 def inform_commands(message):

@@ -27,21 +27,18 @@ class TaskTableManagement:
                     print(f'Error:{e}')
     def get_task(self,task_id):
         with Session() as session:
-            try:
-                task=session.query(TaskTable).filter(self.id==task_id).first()
-                return task
-            except Exception as e:
-                session.rollback()
-                print(e)
+            task=session.query(TaskTable).filter(TaskTable.id==task_id).first()
+            return task
+    
+    def get_tasks_by_chat_id(self, chat_id):
+        with Session() as session:
+            tasks = session.query(TaskTable).filter(TaskTable.chat_id == chat_id).all()
+            return tasks
             
     def get_all_tasks(self):
         with Session() as session:
-            try:
-                tasks=session.query(TaskTable).all()
-                return tasks
-            except Exception as e:
-                session.rollback()
-                print(e)
+            tasks=session.query(TaskTable).all()
+            return tasks
                 
 
 

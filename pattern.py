@@ -69,9 +69,10 @@ def is_validate_time_format(time_string):
     except ValueError:
         return False  # Invalid format
 
-def is_time_expired(input):
-    input_time=extract_time(input)
-    if input_time<datetime.now().time():
+def is_time_expired(date_input,time_input):
+    time=extract_time(time_input)
+    date=extract_date(date_input)
+    if is_date_today(date)and time<datetime.now().time():
         return True
     else:
         return False
