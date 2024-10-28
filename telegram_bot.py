@@ -4,6 +4,7 @@ import telebot
 from telebot import types
 from datetime import datetime
 from database import TaskTable, TaskTableManagement, takeConfigScheduler
+from deep_translator import GoogleTranslator
 
 scheduler = takeConfigScheduler()
 scheduler.start()
@@ -11,8 +12,11 @@ scheduler.start()
 parse_mod='html'
 bot = telebot.TeleBot('[REDACTED]')
 
+def take_meesage_text(message):
+    return GoogleTranslator(source='auto', target='en').translate(message.text)
+
 def send_message(chat_id, text, parse_mode='html'):
-    return bot.send_message(chat_id,text,parse_mode=parse_mode)
+    return bot.send_message(chat_id,GoogleTranslator(source='auto', target='fa').translate(text),parse_mode=parse_mode)
 
 def cancel_suggestion():
     return '\nYou can cancel proccess by sending "<b>cancel</b>"'
@@ -80,12 +84,12 @@ def ask_task(message):
     #                      'for absolute time it should be (abs,yyyy/mm/dd,hh:mm:ss, "description") format, f.g: abs,2025/03/08,14:05:02, meeting)\n'
     #                      'for relative time it should be (rel, "number"(sec/min/hour), hh:mm:ss, "description") format, f.g: '
     #                      'rel, 6 hour, 16:02:05, using med')
-    msg= bot.reply_to(message,'What kind of timetype do you want create?'
-                              '<b>Relative</b> or <b>Absolute</b>(rel/abs)?'+cancel_suggestion(),parse_mode=parse_mod)
+    msg= send_message(message.chat.id,'What kind of timetype do you want create?'
+                              '<b>Relative</b> or <b>Absolute</b>(rel/abs)?'+cancel_suggestion())
     bot.register_next_step_handler(msg,ask_timetype,tsk)
 def ask_timetype(message,tsk):
 
-    text = message.text
+    text = take_meesage_text(message)
     timetype=''
     next_arg=''
     if(text.lower() in['rel', 'relative', 'r']):
@@ -108,7 +112,7 @@ def ask_timetype(message,tsk):
     msg=send_message(message.chat.id,f'You choose {timetype} timetype! {next_question}. {cancel_suggestion()} ')
     bot.register_next_step_handler(msg,ask_date_or_relativetime,tsk)
 def ask_date_or_relativetime(message,tsk):
-    text = message.text
+    text = take_meesage_text(message)
     if(text.lower() == 'cancel'):
         cancel_message(message)
         return
@@ -137,7 +141,7 @@ def ask_date_or_relativetime(message,tsk):
     bot.register_next_step_handler(msg, ask_time, tsk)
 
 def ask_time(message,tsk):
-    text = message.text
+    text = take_meesage_text(message)
     if(text.lower() == 'cancel'):
         cancel_message(message)
         return
@@ -160,7 +164,7 @@ def ask_time(message,tsk):
     bot.register_next_step_handler(msg, ask_description, tsk)
 
 def ask_description(message,tsk):
-    text = message.text
+    text = take_meesage_text(message)
     tsk.description = text
     store_task(message,tsk)
 @bot.message_handler(commands=['show_tasks'])
@@ -182,13 +186,13 @@ def list_tasks(message):
 def ask_delete_task(message):
     tasks=list_tasks(message)
     if tasks:
-        msg=send_message(message.chat.id,'select the number of The task you want wipe out from above list!')
+        msg=send_message(message.chat.id,'send the number of The task you want to remove from above list!')
         bot.register_next_step_handler(msg, check_delete_task,tasks)
     else:
         return
 def check_delete_task(message,tasks):
     try:
-        text = message.text
+        text = take_meesage_text(message)
         if not text.isnumeric():
             raise ValueError('that was not a number, try again! ')
         elif int(text)> len(tasks) or int(text)<1:
@@ -203,12 +207,12 @@ def check_delete_task(message,tasks):
     'Are you sure you want to delete that?(y/n)')
     bot.register_next_step_handler(msg,delete_task,task)
 def delete_task(message,task):
-    text=message.text
+    text = take_meesage_text(message)
     if text.lower() in['yes','y','yeah']:
         scheduler.remove_job(task.apscheduler_job_id)##it will automaticly remove its task too.
-        send_message(message.chat.id,'task has been removed successfully! ')
+        send_message(message.chat.id,'Task has been removed successfully! ')
     elif text.lower() in ['no','nope','n']:
-        send_message(message.chat.id,'proccess of task removing has been canceled! ')
+        send_message(message.chat.id,'Proccess of removing task has been canceled! ')
     else:
         msg=send_message(message.chat.id,'The input was wrong, please try again! ')
         bot.register_next_step_handler(msg,delete_task,task)
