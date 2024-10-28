@@ -5,7 +5,7 @@ def string_to_date(string_date):
         year,month,day=string_date.split('/')
         return datetime(int(year),int(month),int(day)).date()
     else:
-        raise ValueError('Input is not in date form!')
+        raise ValueError('Input is not in date form.')
         
 def tomorrow_date():
     return datetime.now().date() + timedelta(days=1)
@@ -72,7 +72,7 @@ def is_validate_time_format(time_string):
 def is_time_expired(date_input,time_input):
     time=extract_time(time_input)
     date=extract_date(date_input)
-    if is_date_today(date)and time<datetime.now().time():
+    if is_date_today(date) and time<datetime.now().time():
         return True
     else:
         return False

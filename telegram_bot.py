@@ -7,7 +7,16 @@ from database import TaskTable, TaskTableManagement, takeConfigScheduler
 
 scheduler = takeConfigScheduler()
 scheduler.start()
+
+parse_mod='html'
 bot = telebot.TeleBot('[REDACTED]')
+
+def send_message(chat_id, text, parse_mode='html'):
+    return bot.send_message(chat_id,text,parse_mode=parse_mode)
+
+def cancel_suggestion():
+    return '\nYou can cancel proccess by sending "<b>cancel</b>"'
+
 class Task:
     def __init__(self):
         self.timetype =''
@@ -27,7 +36,7 @@ class Task:
         else:
             return False
 def send_notif(tsk,chat_id):
-    bot.send_message(chat_id,f'alert ⚠️:\n {tsk.description}')
+    send_message(chat_id,f'alert ⚠️:\n {tsk.description}')
 def store_task(message,tsk):
     timezone= 'Asia/Tehran'
     chat_id = message.chat.id
@@ -44,12 +53,16 @@ def store_task(message,tsk):
         ,time=tsk.time,description=tsk.description,apscheduler_job_id=job.id)
         task_table.add_task()
     else:
-        raise ValueError('the parameter entered in store_task() is not object Task class')
+        raise ValueError('The parameter entered in store_task() is not object Task class')
+        return
+    send_message(message.chat.id,'your task has been activated <b>successfully</b>!\n'
+                                     'The task information:\n'
+                                     '<b>'+str(tsk)+'</b>')
 
 
 def cancel_message(message):
-    return bot.send_message(message.chat.id, 'the following'
-                                             ' task has been canceled')
+    return send_message(message.chat.id, 'The following'
+                                         ' task has been canceled')
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -58,7 +71,7 @@ def send_welcome(message):
     item2 = types.KeyboardButton('/show_tasks')
     item3 = types.KeyboardButton('/delete_task')
     markup.add(item1, item2 , item3)
-    bot.send_message(message.chat.id , ''
+    send_message(message.chat.id , ''
                                             'you can see /help for options.' , reply_markup=markup)
 @bot.message_handler(commands=['add_task'])
 def ask_task(message):
@@ -67,31 +80,32 @@ def ask_task(message):
     #                      'for absolute time it should be (abs,yyyy/mm/dd,hh:mm:ss, "description") format, f.g: abs,2025/03/08,14:05:02, meeting)\n'
     #                      'for relative time it should be (rel, "number"(sec/min/hour), hh:mm:ss, "description") format, f.g: '
     #                      'rel, 6 hour, 16:02:05, using med')
-    msg= bot.reply_to(message,'what kind of timetype do you want create?'
-                              'Relative or Absolute(rel/abs/cancel)?')
+    msg= bot.reply_to(message,'What kind of timetype do you want create?'
+                              '<b>Relative</b> or <b>Absolute</b>(rel/abs)?'+cancel_suggestion(),parse_mode=parse_mod)
     bot.register_next_step_handler(msg,ask_timetype,tsk)
 def ask_timetype(message,tsk):
 
     text = message.text
     timetype=''
     next_arg=''
-    if(text.lower() =='rel'):
+    if(text.lower() in['rel', 'relative', 'r']):
         timetype='Relative'
-        next_arg=('enter you interval time in "hour:min:sec" format\n f.g: for each 6 hour write: 6:0:0')
-    elif(text.lower() == 'abs'):
+        next_arg=('Enter your interval time in "<b>hour:min:sec</b>" format\n f.g: for each 6 hour write: 6:0:0')
+    elif(text.lower() in ['abs', 'absolute','a']):
         timetype = 'Absolute'
-        next_arg = ('enter you date in ((yyyy/mm/dd)/cancel) form\n f.g: 2025/03/08)')
+        next_arg = ('Enter your date in "<b>year/month/day</b>" format\n f.g: 2025/03/08')
     elif(text.lower() == 'cancel'):
         cancel_message(message)
         return
     else:
-        msg=bot.send_message(message.chat.id,'your input was wrong\n'
-                                             'remember the input should be "rel" or "abs"'
-                                             'or you could cancel it by text "cancel"')
+        msg=send_message(message.chat.id,'Your input was <u>wrong</u>\n'
+                                         'Remember the input should be "<b>rel</b>" or "<b>abs</b>"'+cancel_suggestion())
         bot.register_next_step_handler(msg,ask_timetype,tsk)
         return
     tsk.timetype=timetype
-    msg=bot.send_message(message.chat.id,f'you choose{timetype} timetype! {next_arg} ')
+    next_question=('Enter your '+('interval time in "<b>hour:min:sec</b>" ' if tsk.is_relative() else 'date in "<b>year/month/day</b>" ')
+                 +('format!\n f.g: ')+('For each 6 hour write: 6:0:0' if tsk.is_relative() else '2025/03/08'))
+    msg=send_message(message.chat.id,f'You choose {timetype} timetype! {next_question}. {cancel_suggestion()} ')
     bot.register_next_step_handler(msg,ask_date_or_relativetime,tsk)
 def ask_date_or_relativetime(message,tsk):
     text = message.text
@@ -102,25 +116,24 @@ def ask_date_or_relativetime(message,tsk):
         if ((tsk.timetype == 'Absolute' and is_outdated(text)==False) or
             (tsk.timetype == 'Relative' and is_validate_relative_time(text))):
             tsk.date_or_relativetime = text
-            msg=bot.send_message(message.chat.id, ('Relative' if tsk.is_relative() else 'Absolute')
+            msg=send_message(message.chat.id, ('Relative' if tsk.is_relative() else 'Absolute')
                                 +' time taken successfully')
 
         else:
-            msg=bot.send_message(message.chat.id,('your interval time is wrong. remember the pattern should be'
-                                            'like this: hour:min:sec\n'
-                                            ' or cancel task by text "cancel"!' if tsk.is_relative()
-                                            else 'your date is outdated, please enter again or send "cancel" text.' ))
+            msg=send_message(message.chat.id,('Your interval time is wrong. remember the pattern should be'
+                                            'like this: <b>hour:min:sec</b>' if tsk.is_relative()
+                                            else 'your date is outdated, please enter again!' )+cancel_suggestion())
             bot.register_next_step_handler(msg,ask_date_or_relativetime,tsk)
             return
     except ValueError as e:
-        msg=bot.send_message(message.chat.id,str(e)+'please try again! or send "cancel" text.')
+        msg=send_message(message.chat.id,str(e)+f'remember the date pattern is : "<b>year/month/day</b>"! {cancel_suggestion()}')
         bot.register_next_step_handler(msg,ask_date_or_relativetime,tsk)
         return
 
 
-    bot.send_message(message.chat.id, 'what time do you want to '
+    send_message(message.chat.id, 'What time do you want to '
                      + ('trigger' if tsk.is_relative()==False else 'start from')+' ?'
-                        'you should time format like:"hour:min:sec" you can cancel also by sending "cancel"!!')
+                        'You should send time format like:"<b>hour:min:sec</b>"'+cancel_suggestion())
     bot.register_next_step_handler(msg, ask_time, tsk)
 
 def ask_time(message,tsk):
@@ -131,27 +144,24 @@ def ask_time(message,tsk):
 
     if is_validate_time_format(text):
         if  tsk.is_relative()==False and is_time_expired(tsk.date_or_relativetime,text):
-            msg = bot.send_message(message.chat.id,'The input time is expired, try enter another time')
+            msg = send_message(message.chat.id,'The input time is expired, try enter another time!'+cancel_suggestion())
             bot.register_next_step_handler(msg,ask_time,tsk)
             return
         tsk.time=text
-        msg = bot.send_message(message.chat.id, ('Begin'if tsk.is_relative() else'The')+
+        msg = send_message(message.chat.id, ('Begin'if tsk.is_relative() else'The date and ')+
                                'time has been taken successfully ')
     else:
-        msg = bot.send_message(message.chat.id, 'the time format or time range was wrong.'
+        msg = send_message(message.chat.id, 'the time format or time range was wrong.'
                                                 ' remeber the pattern is "h:m:s"')
         bot.register_next_step_handler(msg,ask_time,tsk)
         return
 
-    bot.send_message(message.chat.id,'write you description about the task!')
+    send_message(message.chat.id,'Write you description about the task!')
     bot.register_next_step_handler(msg, ask_description, tsk)
 
 def ask_description(message,tsk):
     text = message.text
     tsk.description = text
-    bot.send_message(message.chat.id,'your task has been activated successfully!\n'
-                                     'The task information:\n'
-                                     ''+str(tsk))
     store_task(message,tsk)
 @bot.message_handler(commands=['show_tasks'])
 def list_tasks(message):
@@ -165,14 +175,14 @@ def list_tasks(message):
             counter+=1
     else:
         msg='you dont have any task yet!'
-    bot.send_message(message.chat.id, msg)
+    send_message(message.chat.id, msg)
     return tasks
 
 @bot.message_handler(commands=['delete_task'])
 def ask_delete_task(message):
     tasks=list_tasks(message)
     if tasks:
-        msg=bot.send_message(message.chat.id,'select the number of The task you want wipe out from above list!')
+        msg=send_message(message.chat.id,'select the number of The task you want wipe out from above list!')
         bot.register_next_step_handler(msg, check_delete_task,tasks)
     else:
         return
@@ -186,34 +196,32 @@ def check_delete_task(message,tasks):
         else:
             task=tasks[int(text)-1]
     except Exception as e:
-        msg=bot.send_message(message.chat.id,e)
+        msg=send_message(message.chat.id,e)
         bot.register_next_step_handler(msg,check_delete_task,tasks)
         return
-    msg = bot.send_message(message.chat.id,f'Chosen task\n\n timetype:{task.timetype} | date/relativetime:{task.date_or_relativetime} | description:{task.description}\n\n'
+    msg = send_message(message.chat.id,f'Chosen task\n\n timetype:{task.timetype} | date/relativetime:{task.date_or_relativetime} | description:{task.description}\n\n'
     'Are you sure you want to delete that?(y/n)')
     bot.register_next_step_handler(msg,delete_task,task)
 def delete_task(message,task):
     text=message.text
     if text.lower() in['yes','y','yeah']:
         scheduler.remove_job(task.apscheduler_job_id)##it will automaticly remove its task too.
-        bot.send_message(message.chat.id,'task has been removed successfully! ')
+        send_message(message.chat.id,'task has been removed successfully! ')
     elif text.lower() in ['no','nope','n']:
-        bot.send_message(message.chat.id,'proccess of task removing has been canceled! ')
+        send_message(message.chat.id,'proccess of task removing has been canceled! ')
     else:
-        msg=bot.send_message(message.chat.id,'The input was wrong, please try again! ')
+        msg=send_message(message.chat.id,'The input was wrong, please try again! ')
         bot.register_next_step_handler(msg,delete_task,task)
-
-
 
 @bot.message_handler(commands=['help'])
 def inform_commands(message):
-    bot.send_message(message.chat.id, 'list of command:\n'
+    send_message(message.chat.id, 'list of command:\n'
                                       '/start : initialize\n'
                                       '/help : seeing commands\n'
-                                      '/about')
+                                      '/about : what is this bot and how does it works\n')
 @bot.message_handler(commands=['about'])
 def about_text(message):
-    bot.reply_to(message, "A reminder of time for certain event of dates")
+    bot.reply_to(message, "this bot can be use for reminding an event for once or several time.")
 
 
 if __name__ == '__main__':
