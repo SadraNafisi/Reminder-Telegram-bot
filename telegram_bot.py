@@ -137,7 +137,7 @@ def ask_date_or_relativetime(message,tsk):
 
     send_message(message.chat.id, 'What time do you want to '
                      + ('trigger' if tsk.is_relative()==False else 'start from')+' ?'
-                        'You should send time format like:"<b>hour:min:sec</b>"'+cancel_suggestion())
+                        'You should send time format like:"<b>hour:minute:second</b>"'+cancel_suggestion())
     bot.register_next_step_handler(msg, ask_time, tsk)
 
 def ask_time(message,tsk):
@@ -155,8 +155,8 @@ def ask_time(message,tsk):
         msg = send_message(message.chat.id, ('Begin'if tsk.is_relative() else'The date and ')+
                                'time has been taken successfully ')
     else:
-        msg = send_message(message.chat.id, 'the time format or time range was wrong.'
-                                                ' remeber the pattern is "h:m:s"')
+        msg = send_message(message.chat.id, 'The time format or time range was wrong.'
+                                                ' remeber the pattern is "<b>hour:minute:second</b>"')
         bot.register_next_step_handler(msg,ask_time,tsk)
         return
 
@@ -172,13 +172,13 @@ def list_tasks(message):
     tasks=TaskTableManagement().get_tasks_by_chat_id(message.chat.id)
     msg=''
     if tasks:
-        msg='tasks format is the following format: timetype | date/relative time | description\n'
+        msg='Task format: time type | date/relative time | description\n'
         counter=1
         for task in tasks:
             msg +=f'{counter}- {task.timetype} | {task.date_or_relativetime} | {task.description}\n'
             counter+=1
     else:
-        msg='you dont have any task yet!'
+        msg='You dont have any task yet!'
     send_message(message.chat.id, msg)
     return tasks
 
@@ -194,16 +194,16 @@ def check_delete_task(message,tasks):
     try:
         text = take_meesage_text(message)
         if not text.isnumeric():
-            raise ValueError('that was not a number, try again! ')
+            raise ValueError('That was not a number, try again! ')
         elif int(text)> len(tasks) or int(text)<1:
-            raise ValueError('your input number was wrong, try again! ')
+            raise ValueError('Your input number was wrong, try again! ')
         else:
             task=tasks[int(text)-1]
     except Exception as e:
         msg=send_message(message.chat.id,e)
         bot.register_next_step_handler(msg,check_delete_task,tasks)
         return
-    msg = send_message(message.chat.id,f'Chosen task\n\n timetype:{task.timetype} | date/relativetime:{task.date_or_relativetime} | description:{task.description}\n\n'
+    msg = send_message(message.chat.id,f'Chosen task\n\n time type:{task.timetype} | date/relativetime:{task.date_or_relativetime} | description:{task.description}\n\n'
     'Are you sure you want to delete that?(y/n)')
     bot.register_next_step_handler(msg,delete_task,task)
 def delete_task(message,task):
@@ -225,7 +225,7 @@ def inform_commands(message):
                                       '/about : what is this bot and how does it works\n')
 @bot.message_handler(commands=['about'])
 def about_text(message):
-    bot.reply_to(message, "this bot can be use for reminding an event for once or several time.")
+    send_message(message.chat.id, "This bot can be use for reminding an event for once or several time.")
 
 
 if __name__ == '__main__':
