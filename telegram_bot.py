@@ -4,19 +4,24 @@ import telebot
 from telebot import types
 from datetime import datetime
 from database import TaskTable, TaskTableManagement, takeConfigScheduler
-from deep_translator import GoogleTranslator
+from translation import translate_with_regex,translate
 
 scheduler = takeConfigScheduler()
 scheduler.start()
 
 parse_mod='html'
+languages=['en','fa']
+seletcted_language='fa'## for now it is manually persian
 bot = telebot.TeleBot('[REDACTED]')
 
 def take_meesage_text(message):
-    return GoogleTranslator(source='auto', target='en').translate(message.text)
+    if(seletcted_language != 'en'):
+        return translate(message.text)
+    else:
+        return message.text
 
 def send_message(chat_id, text, parse_mode='html'):
-    return bot.send_message(chat_id,GoogleTranslator(source='auto', target='fa').translate(text),parse_mode=parse_mode)
+    return bot.send_message(chat_id,translate_with_regex(text,'fa'),parse_mode=parse_mode)
 
 def cancel_suggestion():
     return '\nYou can cancel proccess by sending "<b>cancel</b>"'
@@ -29,10 +34,10 @@ class Task:
         self.description=''
 
     def __str__(self):
-        return (f'timetype : {self.timetype}\n'
+        return (f'time type : {self.timetype}\n'
                 +('relativetime' if self.timetype == "Relative" else 'date')+f' : {self.date_or_relativetime}\n'
                 f'time : {self.time}\n'
-                f'description: {self.description}')
+                f'description: ^*{self.description}*^')
 
     def is_relative(self):
         if self.timetype == "Relative":
@@ -40,7 +45,7 @@ class Task:
         else:
             return False
 def send_notif(tsk,chat_id):
-    send_message(chat_id,f'alert ⚠️:\n {tsk.description}')
+    send_message(chat_id,f'alert ⚠️:\n ^*{tsk.description}*^')
 def store_task(message,tsk):
     timezone= 'Asia/Tehran'
     chat_id = message.chat.id
@@ -81,8 +86,8 @@ def send_welcome(message):
 def ask_task(message):
     tsk=Task()
     # msg=bot.reply_to(message,'there are two kind of time you can add. absolute time (date and time) and relative time (daily)\n'
-    #                      'for absolute time it should be (abs,yyyy/mm/dd,hh:mm:ss, "description") format, f.g: abs,2025/03/08,14:05:02, meeting)\n'
-    #                      'for relative time it should be (rel, "number"(sec/min/hour), hh:mm:ss, "description") format, f.g: '
+    #                      'for absolute time it should be (abs,yyyy/mm/dd,hh:mm:ss, "description") format, for example: abs,2025/03/08,14:05:02, meeting)\n'
+    #                      'for relative time it should be (rel, "number"(sec/min/hour), hh:mm:ss, "description") format, for example: '
     #                      'rel, 6 hour, 16:02:05, using med')
     msg= send_message(message.chat.id,'What kind of timetype do you want create?'
                               '<b>Relative</b> or <b>Absolute</b>(rel/abs)?'+cancel_suggestion())
@@ -94,10 +99,10 @@ def ask_timetype(message,tsk):
     next_arg=''
     if(text.lower() in['rel', 'relative', 'r']):
         timetype='Relative'
-        next_arg=('Enter your interval time in "<b>hour:min:sec</b>" format\n f.g: for each 6 hour write: 6:0:0')
+        next_arg=('Enter your time type in "<b>hour:minute:second</b>" format\n for example: for each 6 hour write: 6:0:0')
     elif(text.lower() in ['abs', 'absolute','a']):
         timetype = 'Absolute'
-        next_arg = ('Enter your date in "<b>year/month/day</b>" format\n f.g: 2025/03/08')
+        next_arg = ('Enter your date in ^*"<b>year/month/day</b>"*^ format\n for example: 2025/03/08')
     elif(text.lower() == 'cancel'):
         cancel_message(message)
         return
@@ -107,8 +112,8 @@ def ask_timetype(message,tsk):
         bot.register_next_step_handler(msg,ask_timetype,tsk)
         return
     tsk.timetype=timetype
-    next_question=('Enter your '+('interval time in "<b>hour:min:sec</b>" ' if tsk.is_relative() else 'date in "<b>year/month/day</b>" ')
-                 +('format!\n f.g: ')+('For each 6 hour write: 6:0:0' if tsk.is_relative() else '2025/03/08'))
+    next_question=('Enter your '+('interval time in "<b>hour:minute:second</b>" ' if tsk.is_relative() else 'date in "<b>year/month/day</b>" ')
+                 +('format!\n for example: ')+('For each 6 hour write: 6:0:0' if tsk.is_relative() else '2025/03/08'))
     msg=send_message(message.chat.id,f'You choose {timetype} timetype! {next_question}. {cancel_suggestion()} ')
     bot.register_next_step_handler(msg,ask_date_or_relativetime,tsk)
 def ask_date_or_relativetime(message,tsk):
@@ -121,23 +126,23 @@ def ask_date_or_relativetime(message,tsk):
             (tsk.timetype == 'Relative' and is_validate_relative_time(text))):
             tsk.date_or_relativetime = text
             msg=send_message(message.chat.id, ('Relative' if tsk.is_relative() else 'Absolute')
-                                +' time taken successfully')
+                                +' time is recorded successfully')
 
         else:
-            msg=send_message(message.chat.id,('Your interval time is wrong. remember the pattern should be'
-                                            'like this: <b>hour:min:sec</b>' if tsk.is_relative()
+            msg=send_message(message.chat.id,('Your relative time format is wrong. remember the pattern should be'
+                                            'like this: "<b>hour:minute:second</b>"' if tsk.is_relative()
                                             else 'your date is outdated, please enter again!' )+cancel_suggestion())
             bot.register_next_step_handler(msg,ask_date_or_relativetime,tsk)
             return
     except ValueError as e:
-        msg=send_message(message.chat.id,str(e)+f'remember the date pattern is : "<b>year/month/day</b>"! {cancel_suggestion()}')
+        msg=send_message(message.chat.id,str(e)+f'remember the date pattern is : ^*"<b>year/month/day</b>"*^! {cancel_suggestion()}')
         bot.register_next_step_handler(msg,ask_date_or_relativetime,tsk)
         return
 
 
     send_message(message.chat.id, 'What time do you want to '
                      + ('trigger' if tsk.is_relative()==False else 'start from')+' ?'
-                        'You should send time format like:"<b>hour:minute:second</b>"'+cancel_suggestion())
+                        'You should send time format like:^*"<b>hour:minute:second</b>"*^'+cancel_suggestion())
     bot.register_next_step_handler(msg, ask_time, tsk)
 
 def ask_time(message,tsk):
@@ -156,11 +161,11 @@ def ask_time(message,tsk):
                                'time has been taken successfully ')
     else:
         msg = send_message(message.chat.id, 'The time format or time range was wrong.'
-                                                ' remeber the pattern is "<b>hour:minute:second</b>"')
+                                                ' remeber the pattern is "<b>hour:minute:second </b>"')
         bot.register_next_step_handler(msg,ask_time,tsk)
         return
 
-    send_message(message.chat.id,'Write you description about the task!')
+    send_message(message.chat.id,'Write your description about the task!')
     bot.register_next_step_handler(msg, ask_description, tsk)
 
 def ask_description(message,tsk):
@@ -175,7 +180,7 @@ def list_tasks(message):
         msg='Task format: time type | date/relative time | description\n'
         counter=1
         for task in tasks:
-            msg +=f'{counter}- {task.timetype} | {task.date_or_relativetime} | {task.description}\n'
+            msg +=f'{counter}- {task.timetype} | {task.date_or_relativetime} | ^*{task.description}*^\n'
             counter+=1
     else:
         msg='You dont have any task yet!'
@@ -203,7 +208,7 @@ def check_delete_task(message,tasks):
         msg=send_message(message.chat.id,e)
         bot.register_next_step_handler(msg,check_delete_task,tasks)
         return
-    msg = send_message(message.chat.id,f'Chosen task\n\n time type:{task.timetype} | date/relativetime:{task.date_or_relativetime} | description:{task.description}\n\n'
+    msg = send_message(message.chat.id,f'Chosen task\n\n time type:{task.timetype} | date/relativetime:{task.date_or_relativetime} | description:^*{task.description}*^\n\n'
     'Are you sure you want to delete that?(y/n)')
     bot.register_next_step_handler(msg,delete_task,task)
 def delete_task(message,task):

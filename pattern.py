@@ -31,8 +31,10 @@ def is_date_today(input):
             
 def is_valid_date(date_string):
     try:
+        year,month,day=date_string.split('/')
+        string =f'{int(year)}/{int(month)}/{int(day)}'#for converting persian number to english
         # Try to parse the date string
-        datetime.strptime(date_string, '%Y/%m/%d')
+        datetime.strptime(string, '%Y/%m/%d')
         
         return True  # If parsing is successful, the format is valid
     except ValueError:
@@ -63,8 +65,10 @@ def extract_time(input):
 
 def is_validate_time_format(time_string):
     try:
+        hour,minute,second=time_string.split(':')
+        string =f'{int(hour)}:{int(minute)}:{int(second)}'#for converting persian number to english
         # Attempt to parse the time_string
-        datetime.strptime(time_string, '%H:%M:%S')
+        datetime.strptime(string, '%H:%M:%S')
         return True  # Valid format
     except ValueError:
         return False  # Invalid format
