@@ -8,21 +8,27 @@ from translation import translate_with_regex,translate
 
 scheduler = takeConfigScheduler()
 scheduler.start()
-
 parse_mod='html'
-languages=['en','fa']
-seletcted_language='fa'## for now it is manually persian
 bot = telebot.TeleBot('[REDACTED]')
+def get_user_lang(chat_id):
+    if user_lang.get(chat_id) is None:
+        user_lang[chat_id]=selected_language
+    return user_lang[chat_id]
 
-def take_meesage_text(message):
-    if(seletcted_language != 'en'):
-        return translate(message.text)
-    else:
+def take_meesage_text(message,translation=True):
+    if(get_user_lang(message.chat.id) == 'en') or translation == False :
         return message.text
+    else:
+        return translate(message.text)
 
 def send_message(chat_id, text, parse_mode='html'):
-    return bot.send_message(chat_id,translate_with_regex(text,'fa'),parse_mode=parse_mode)
-
+    lang = get_user_lang(chat_id)
+    if(lang =='en'):
+        text=text.replace('*^','')
+        text = text.replace('^*','')
+        return bot.send_message(chat_id,text,parse_mode=parse_mode)
+    else:
+        return bot.send_message(chat_id,translate_with_regex(text,lang),parse_mode=parse_mode)
 def cancel_suggestion():
     return '\nYou can cancel proccess by sending "<b>cancel</b>"'
 
@@ -74,6 +80,25 @@ def cancel_message(message):
                                          ' task has been canceled')
 
 @bot.message_handler(commands=['start'])
+def ask_lang(message):
+    msg = send_message(message.chat.id,'Please enter your language number:\n 1-🇺🇸english\n 2-🇮🇷farsi')
+    bot.register_next_step_handler(msg,set_lang)
+def set_lang(message):
+    text = take_meesage_text(message)
+    try:
+        if not text.isnumeric():
+            raise ValueError(f'The sending text was not a number')
+        elif int(text) not in range(0,len(languages)+1):
+            raise ValueError(f'The sending number is not in options.')
+        else:
+            lang = user_lang[message.chat.id] = languages[int(text)-1]
+            send_message(message.chat.id,f'Now the language is ^*{lang}*^.')
+
+
+    except ValueError as e:
+        msg =send_message(message.chat.id,str(e))
+        bot.register_next_step_handler(msg,ask_lang)
+        return
 def send_welcome(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     item1 = types.KeyboardButton('/add_task')
@@ -169,7 +194,7 @@ def ask_time(message,tsk):
     bot.register_next_step_handler(msg, ask_description, tsk)
 
 def ask_description(message,tsk):
-    text = take_meesage_text(message)
+    text = take_meesage_text(message,False)
     tsk.description = text
     store_task(message,tsk)
 @bot.message_handler(commands=['show_tasks'])
@@ -234,4 +259,9 @@ def about_text(message):
 
 
 if __name__ == '__main__':
+    languages=['en','fa']
+    selected_language='fa'
+    user_lang={}
     bot.infinity_polling()
+
+

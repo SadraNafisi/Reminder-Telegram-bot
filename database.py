@@ -8,8 +8,8 @@ from sqlalchemy.orm import sessionmaker, validates, relationship
 from pattern import is_valid_date, is_validate_time_format, is_validate_relative_time
 Base = declarative_base()
 # url='[REDACTED]'
-url = 'database_url' #local_database(postgres)
-# url='[REDACTED]'#python anywhere(mysql)
+# url = 'database_url' #local_database(postgres)
+url='[REDACTED]'#pythonanywhere_database(mysql)
 engine = create_engine(url)
 Session = sessionmaker(bind=engine)
 metadata = Base.metadata
