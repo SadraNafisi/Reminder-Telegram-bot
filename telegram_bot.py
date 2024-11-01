@@ -259,7 +259,7 @@ def about_text(message):
 
 if __name__ == '__main__':
     languages=['en','fa']
-    selected_language='fa'
+    selected_language= languages[0]##default language
     user_lang={}
     bot.infinity_polling()
 
