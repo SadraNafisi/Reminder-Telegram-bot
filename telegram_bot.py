@@ -257,7 +257,6 @@ def inform_commands(message):
 def about_text(message):
     send_message(message.chat.id, "This bot can be use for reminding an event for once or several time.")
 
-
 if __name__ == '__main__':
     languages=['en','fa']
     selected_language='fa'
