@@ -72,3 +72,14 @@ Bot Commands
 ``/show_tasks``: demonstrate all tasks user that still remain
 
 ``/delete_task``: remove a task
+
+Example
+=============
+.. raw:: html
+
+   <div style="display: flex; justify-content: space-around;">
+       <img src="example_images/test1.png" alt="Image 1" style="width: 330px;height:600px;">
+       <img src="example_images/test2.png" alt="Image 2" style="width: 330px;height:600px;">
+       <img src="example_images/test3.png" alt="Image 3" style="width: 330px;height:600px;">
+   </div>
+
