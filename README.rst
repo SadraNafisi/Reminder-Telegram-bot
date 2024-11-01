@@ -31,7 +31,7 @@ Installation
 
 2- Obtain a bot in telegram from a bot called `BotFather <https://t.me/botfather>`_
 
-3- BotFather takes **api-token** when process of creating bot finished. copy that!
+3- BotFather gives **api-token** when process of creating bot finished. copy that!
 
 4- in ``telegram_bot.py`` instead of ``<api_token>`` paste that::
 
