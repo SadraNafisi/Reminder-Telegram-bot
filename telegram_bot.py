@@ -29,6 +29,7 @@ def send_message(chat_id, text, parse_mode='html'):
         return bot.send_message(chat_id,text,parse_mode=parse_mode)
     else:
         return bot.send_message(chat_id,translate_with_regex(text,lang),parse_mode=parse_mode)
+
 def cancel_suggestion():
     return '\nYou can cancel proccess by sending "<b>cancel</b>"'
 
@@ -50,8 +51,10 @@ class Task:
             return True
         else:
             return False
+
 def send_notif(tsk,chat_id):
     send_message(chat_id,f'alert ⚠️:\n ^*{tsk.description}*^')
+
 def store_task(message,tsk):
     timezone= 'Asia/Tehran'
     chat_id = message.chat.id
@@ -74,15 +77,16 @@ def store_task(message,tsk):
                                      'The task information:\n'
                                      '<b>'+str(tsk)+'</b>')
 
-
 def cancel_message(message):
-    return send_message(message.chat.id, 'The following'
-                                         ' task has been canceled')
+    return send_message(message.chat.id, 'The creating'
+                                         ' task process has been canceled!')
+
 
 @bot.message_handler(commands=['start'])
 def ask_lang(message):
     msg = send_message(message.chat.id,'Please enter your language number:\n 1-🇺🇸english\n 2-🇮🇷farsi')
     bot.register_next_step_handler(msg,set_lang)
+
 def set_lang(message):
     text = take_meesage_text(message)
     try:
@@ -93,12 +97,11 @@ def set_lang(message):
         else:
             lang = user_lang[message.chat.id] = languages[int(text)-1]
             send_message(message.chat.id,f'Now the language is ^*{lang}*^.')
-
-
     except ValueError as e:
         msg =send_message(message.chat.id,str(e))
         bot.register_next_step_handler(msg,ask_lang)
         return
+
 def send_welcome(message):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     item1 = types.KeyboardButton('/add_task')
@@ -107,6 +110,8 @@ def send_welcome(message):
     markup.add(item1, item2 , item3)
     send_message(message.chat.id , ''
                                             'you can see /help for options.' , reply_markup=markup)
+
+
 @bot.message_handler(commands=['add_task'])
 def ask_task(message):
     tsk=Task()
@@ -117,8 +122,8 @@ def ask_task(message):
     msg= send_message(message.chat.id,'What kind of timetype do you want create?'
                               '<b>Relative</b> or <b>Absolute</b>(rel/abs)?'+cancel_suggestion())
     bot.register_next_step_handler(msg,ask_timetype,tsk)
-def ask_timetype(message,tsk):
 
+def ask_timetype(message,tsk):
     text = take_meesage_text(message)
     timetype=''
     next_arg=''
@@ -141,6 +146,7 @@ def ask_timetype(message,tsk):
                  +('format!\n for example: ')+('For each 6 hour write: 6:0:0' if tsk.is_relative() else '2025/03/08'))
     msg=send_message(message.chat.id,f'You choose {timetype} timetype! {next_question}. {cancel_suggestion()} ')
     bot.register_next_step_handler(msg,ask_date_or_relativetime,tsk)
+
 def ask_date_or_relativetime(message,tsk):
     text = take_meesage_text(message)
     if(text.lower() == 'cancel'):
@@ -152,7 +158,6 @@ def ask_date_or_relativetime(message,tsk):
             tsk.date_or_relativetime = text
             msg=send_message(message.chat.id, ('Relative' if tsk.is_relative() else 'Absolute')
                                 +' time is recorded successfully')
-
         else:
             msg=send_message(message.chat.id,('Your relative time format is wrong. remember the pattern should be'
                                             'like this: "<b>hour:minute:second</b>"' if tsk.is_relative()
@@ -163,8 +168,6 @@ def ask_date_or_relativetime(message,tsk):
         msg=send_message(message.chat.id,str(e)+f'remember the date pattern is : ^*"<b>year/month/day</b>"*^! {cancel_suggestion()}')
         bot.register_next_step_handler(msg,ask_date_or_relativetime,tsk)
         return
-
-
     send_message(message.chat.id, 'What time do you want to '
                      + ('trigger' if tsk.is_relative()==False else 'start from')+' ?'
                         'You should send time format like:^*"<b>hour:minute:second</b>"*^'+cancel_suggestion())
@@ -197,6 +200,8 @@ def ask_description(message,tsk):
     text = take_meesage_text(message,False)
     tsk.description = text
     store_task(message,tsk)
+
+
 @bot.message_handler(commands=['show_tasks'])
 def list_tasks(message):
     tasks=TaskTableManagement().get_tasks_by_chat_id(message.chat.id)
@@ -212,6 +217,7 @@ def list_tasks(message):
     send_message(message.chat.id, msg)
     return tasks
 
+
 @bot.message_handler(commands=['delete_task'])
 def ask_delete_task(message):
     tasks=list_tasks(message)
@@ -220,6 +226,7 @@ def ask_delete_task(message):
         bot.register_next_step_handler(msg, check_delete_task,tasks)
     else:
         return
+
 def check_delete_task(message,tasks):
     try:
         text = take_meesage_text(message)
@@ -236,6 +243,7 @@ def check_delete_task(message,tasks):
     msg = send_message(message.chat.id,f'Chosen task\n\n time type:{task.timetype} | date/relativetime:{task.date_or_relativetime} | description:^*{task.description}*^\n\n'
     'Are you sure you want to delete that?(y/n)')
     bot.register_next_step_handler(msg,delete_task,task)
+
 def delete_task(message,task):
     text = take_meesage_text(message)
     if text.lower() in['yes','y','yeah']:
@@ -247,15 +255,23 @@ def delete_task(message,task):
         msg=send_message(message.chat.id,'The input was wrong, please try again! ')
         bot.register_next_step_handler(msg,delete_task,task)
 
+
 @bot.message_handler(commands=['help'])
 def inform_commands(message):
     send_message(message.chat.id, 'list of command:\n'
-                                      '/start : initialize\n'
-                                      '/help : seeing commands\n'
-                                      '/about : what is this bot and how does it works\n')
+                                      '/start: Begin work with bot and set language\n'
+                                      '/add_task: Create new task for alarm at certain time\n'
+                                      '/show_tasks: Demonstrate all active tasks \n'
+                                      '/delete_task: Remove an active \n'
+                                      '/help: Show commands\n'
+                                      '/about: What is this bot and how does it works\n')
 @bot.message_handler(commands=['about'])
 def about_text(message):
-    send_message(message.chat.id, "This bot can be use for reminding an event for once or several time.")
+    send_message(message.chat.id, "This bot can be used for reminding an event for one-time<b>(absolute)</b> or repeating alert base on a interval time<b>(relative)</b>. "
+                                    "you could also choosing the language by sending /start, for now there are two languages available,Persian and English.")
+@bot.message_handler(func= lambda message : True)
+def other_messages(message):
+    send_message(message.chat.id,'the purpose of sending message is unknown,you could see commands through sending /help .')
 
 if __name__ == '__main__':
     languages=['en','fa']
