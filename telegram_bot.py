@@ -1,8 +1,8 @@
 from pattern import is_outdated, is_date_today, is_time_expired, is_validate_relative_time, is_validate_time_format, tomorrow_date
-from pattern import string_to_date, string_to_time
+from pattern import string_to_date, string_to_time,today_date_string,tomorrow_date_string
 import telebot
 from telebot import types
-from datetime import datetime
+from datetime import datetime,date
 from database import TaskTable, TaskTableManagement, takeConfigScheduler
 from translation import translate_with_regex,translate
 
@@ -142,8 +142,9 @@ def ask_timetype(message,tsk):
         bot.register_next_step_handler(msg,ask_timetype,tsk)
         return
     tsk.timetype=timetype
-    next_question=('Enter your '+('interval time in "<b>hour:minute:second</b>" ' if tsk.is_relative() else 'date in "<b>year/month/day</b>" ')
-                 +('format!\n for example: ')+('For each 6 hour write: 6:0:0' if tsk.is_relative() else '2025/03/08'))
+    next_question=('Enter your '+('interval time in "<b>hour:minute:second</b> format! " ' if tsk.is_relative() else 'date in "<b>year/month/day</b>" format! '
+                    'you could also send "<b>today</b>" or "<b>tomorrow</b>" or just date ')
+                 +('\n for example: ')+('For each 6 hour write: 6:0:0' if tsk.is_relative() else '2025/03/08'))
     msg=send_message(message.chat.id,f'You choose {timetype} timetype! {next_question}. {cancel_suggestion()} ')
     bot.register_next_step_handler(msg,ask_date_or_relativetime,tsk)
 
@@ -152,6 +153,11 @@ def ask_date_or_relativetime(message,tsk):
     if(text.lower() == 'cancel'):
         cancel_message(message)
         return
+    elif(tsk.timetype == 'Absolute'):
+        if(text.lower() == 'today'):
+            text=today_date_string()
+        elif(text.lower() == 'tomorrow'):
+            text=tomorrow_date_string()
     try:
         if ((tsk.timetype == 'Absolute' and is_outdated(text)==False) or
             (tsk.timetype == 'Relative' and is_validate_relative_time(text))):
@@ -178,7 +184,6 @@ def ask_time(message,tsk):
     if(text.lower() == 'cancel'):
         cancel_message(message)
         return
-
     if is_validate_time_format(text):
         if  tsk.is_relative()==False and is_time_expired(tsk.date_or_relativetime,text):
             msg = send_message(message.chat.id,'The input time is expired, try enter another time!'+cancel_suggestion())
@@ -222,12 +227,20 @@ def list_tasks(message):
 def ask_delete_task(message):
     tasks=list_tasks(message)
     if tasks:
-        msg=send_message(message.chat.id,'send the number of The task you want to remove from above list!')
-        bot.register_next_step_handler(msg, check_delete_task,tasks)
+        if len(tasks)>1:
+            msg=send_message(message.chat.id,'send the number of The task you want to remove from above list!')
+            bot.register_next_step_handler(msg, choose_deleted_task,tasks)
+        else:
+            candidate_delete_task(message.chat.id,tasks[0])
     else:
         return
 
-def check_delete_task(message,tasks):
+def candidate_delete_task(chat_id,task):
+    msg = send_message(chat_id,f'Chosen task\n\n time type:{task.timetype} | date/relativetime:{task.date_or_relativetime} | description:^*{task.description}*^\n\n'
+    'Are you sure you want to delete that?(y/n)')
+    bot.register_next_step_handler(msg,delete_task,task)
+
+def choose_deleted_task(message,tasks):
     try:
         text = take_meesage_text(message)
         if not text.isnumeric():
@@ -238,11 +251,9 @@ def check_delete_task(message,tasks):
             task=tasks[int(text)-1]
     except Exception as e:
         msg=send_message(message.chat.id,e)
-        bot.register_next_step_handler(msg,check_delete_task,tasks)
+        bot.register_next_step_handler(msg,choose_deleted_task,tasks)
         return
-    msg = send_message(message.chat.id,f'Chosen task\n\n time type:{task.timetype} | date/relativetime:{task.date_or_relativetime} | description:^*{task.description}*^\n\n'
-    'Are you sure you want to delete that?(y/n)')
-    bot.register_next_step_handler(msg,delete_task,task)
+    candidate_delete_task(message.chat.id,task)
 
 def delete_task(message,task):
     text = take_meesage_text(message)
