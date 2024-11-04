@@ -10,6 +10,7 @@ scheduler = takeConfigScheduler()
 scheduler.start()
 parse_mod='html'
 bot = telebot.TeleBot('[REDACTED]')
+
 def get_user_lang(chat_id):
     if user_lang.get(chat_id) is None:
         user_lang[chat_id]=selected_language
@@ -21,14 +22,14 @@ def take_meesage_text(message,translation=True):
     else:
         return translate(message.text)
 
-def send_message(chat_id, text, parse_mode='html'):
+def send_message(chat_id, text, parse_mode='html',reply_markup=None):
     lang = get_user_lang(chat_id)
     if(lang =='en'):
         text=text.replace('*^','')
         text = text.replace('^*','')
-        return bot.send_message(chat_id,text,parse_mode=parse_mode)
+        return bot.send_message(chat_id,text,parse_mode=parse_mode,reply_markup=reply_markup)
     else:
-        return bot.send_message(chat_id,translate_with_regex(text,lang),parse_mode=parse_mode)
+        return bot.send_message(chat_id,translate_with_regex(text,lang),parse_mode=parse_mode,reply_markup=reply_markup)
 
 def cancel_suggestion():
     return '\nYou can cancel proccess by sending "<b>cancel</b>"'
@@ -80,6 +81,13 @@ def store_task(message,tsk):
 def cancel_message(message):
     return send_message(message.chat.id, 'The creating'
                                          ' task process has been canceled!')
+def create_ReplyKeyboard(buttons=[]):
+    keyboard=types.ReplyKeyboardMarkup(resize_keyboard=True)
+    for button in buttons:
+        keyboard.add(button)
+    keyboard.add(types.KeyboardButton('cancel'))
+    return keyboard
+
 
 
 @bot.message_handler(commands=['start'])
@@ -114,50 +122,82 @@ def send_welcome(message):
 
 @bot.message_handler(commands=['add_task'])
 def ask_task(message):
-    tsk=Task()
-    # msg=bot.reply_to(message,'there are two kind of time you can add. absolute time (date and time) and relative time (daily)\n'
-    #                      'for absolute time it should be (abs,yyyy/mm/dd,hh:mm:ss, "description") format, for example: abs,2025/03/08,14:05:02, meeting)\n'
-    #                      'for relative time it should be (rel, "number"(sec/min/hour), hh:mm:ss, "description") format, for example: '
-    #                      'rel, 6 hour, 16:02:05, using med')
-    msg= send_message(message.chat.id,'What kind of timetype do you want create?'
-                              '<b>Relative</b> or <b>Absolute</b>(rel/abs)?'+cancel_suggestion())
-    bot.register_next_step_handler(msg,ask_timetype,tsk)
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    relative_button = types.InlineKeyboardButton("Relative", callback_data='relative')
+    absolute_button = types.InlineKeyboardButton("Absolute", callback_data='absolute')
+    cancel_button = types.InlineKeyboardButton('Cancel', callback_data='cancel')
+    markup.add(relative_button, absolute_button,cancel_button)
+    send_message(message.chat.id, 'What kind of time type do you want to create?', reply_markup=markup)
 
-def ask_timetype(message,tsk):
-    text = take_meesage_text(message)
-    timetype=''
-    next_arg=''
-    if(text.lower() in['rel', 'relative', 'r']):
-        timetype='Relative'
-        next_arg=('Enter your time type in "<b>hour:minute:second</b>" format\n for example: for each 6 hour write: 6:0:0')
-    elif(text.lower() in ['abs', 'absolute','a']):
-        timetype = 'Absolute'
-        next_arg = ('Enter your date in ^*"<b>year/month/day</b>"*^ format\n for example: 2025/03/08')
-    elif(text.lower() == 'cancel'):
-        cancel_message(message)
-        return
+@bot.callback_query_handler(func=lambda call: call.data =='cancel')
+def cancel_call(call):
+    bot.delete_message(call.message.chat.id, call.message.message_id)
+    return send_message(call.message.chat.id, 'The creating'
+                                         ' task process has been canceled!')
+
+@bot.callback_query_handler(func=lambda call: call.data in ['relative', 'absolute'])
+def ask_timetype(call):
+    global tsk
+    tsk = Task()
+    if call.data == 'relative':
+        tsk.timetype = 'Relative'
     else:
-        msg=send_message(message.chat.id,'Your input was <u>wrong</u>\n'
-                                         'Remember the input should be "<b>rel</b>" or "<b>abs</b>"'+cancel_suggestion())
-        bot.register_next_step_handler(msg,ask_timetype,tsk)
-        return
-    tsk.timetype=timetype
+        tsk.timetype = 'Absolute'
+
+    bot.delete_message(call.message.chat.id, call.message.message_id)
+    # Send the next question
     next_question=('Enter your '+('interval time in "<b>hour:minute:second</b> format! " ' if tsk.is_relative() else 'date in "<b>year/month/day</b>" format! '
                     'you could also send "<b>today</b>" or "<b>tomorrow</b>" or just date ')
                  +('\n for example: ')+('For each 6 hour write: 6:0:0' if tsk.is_relative() else '2025/03/08'))
-    msg=send_message(message.chat.id,f'You choose {timetype} timetype! {next_question}. {cancel_suggestion()} ')
-    bot.register_next_step_handler(msg,ask_date_or_relativetime,tsk)
 
-def ask_date_or_relativetime(message,tsk):
+    markup=None
+    if not tsk.is_relative():
+        markup = types.InlineKeyboardMarkup(row_width=2)
+        cancel_button = types.InlineKeyboardButton('Cancel', callback_data='cancel')
+        today_button = types.InlineKeyboardButton('Today', callback_data='today')
+        tomorrow_button = types.InlineKeyboardButton('Tomorrow', callback_data='tomorrow')
+        date_button = types.InlineKeyboardButton('Date', callback_data='date')
+        markup.add(today_button)
+        markup.add(tomorrow_button)
+        markup.add(date_button)
+        markup.add(cancel_button)
+    else:
+        bot.register_next_step_handler(call.message, ask_date_or_relativetime)
+    msg = send_message(call.message.chat.id, f'You choose {tsk.timetype} timetype! {next_question}. {cancel_suggestion()} ',reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda call: call.data in ['today', 'tomorrow'])
+def handle_date_selection(call):
+    if call.data == 'today':
+        date_selected = today_date_string()
+    else:
+        date_selected = tomorrow_date_string()
+
+    # Set the date_or_relativetime in the task
+    tsk.date_or_relativetime = date_selected
+
+    # Delete the original message with the inline keyboard
+    bot.delete_message(call.message.chat.id, call.message.message_id)
+
+    # Confirm the date selection
+    send_message(call.message.chat.id, f'You selected: {date_selected}. Now please enter the time in "<b>hour:minute:second</b>" format.{cancel_suggestion()}',
+    reply_markup=create_ReplyKeyboard())
+
+    # Register the next step handler for time input
+    bot.register_next_step_handler(call.message, ask_time, tsk)
+
+@bot.callback_query_handler(func=lambda call: call.data == 'date')
+def set_date(call):
+    bot.delete_message(call.message.chat.id, call.message.message_id)
+    msg=send_message(call.message.chat.id, f'You choose date. Now please send the date in "<b>year/month/day</b>" format. '+ cancel_suggestion(),
+    reply_markup=create_ReplyKeyboard())
+    bot.register_next_step_handler(msg, ask_date_or_relativetime)
+
+def ask_date_or_relativetime(message):
     text = take_meesage_text(message)
     if(text.lower() == 'cancel'):
         cancel_message(message)
         return
-    elif(tsk.timetype == 'Absolute'):
-        if(text.lower() == 'today'):
-            text=today_date_string()
-        elif(text.lower() == 'tomorrow'):
-            text=tomorrow_date_string()
     try:
         if ((tsk.timetype == 'Absolute' and is_outdated(text)==False) or
             (tsk.timetype == 'Relative' and is_validate_relative_time(text))):
@@ -167,16 +207,16 @@ def ask_date_or_relativetime(message,tsk):
         else:
             msg=send_message(message.chat.id,('Your relative time format is wrong. remember the pattern should be'
                                             'like this: "<b>hour:minute:second</b>"' if tsk.is_relative()
-                                            else 'your date is outdated, please enter again!' )+cancel_suggestion())
-            bot.register_next_step_handler(msg,ask_date_or_relativetime,tsk)
+                                            else 'your date is outdated, please enter again!' )+cancel_suggestion(),reply_markup=create_ReplyKeyboard())
+            bot.register_next_step_handler(msg,ask_date_or_relativetime)
             return
     except ValueError as e:
-        msg=send_message(message.chat.id,str(e)+f'remember the date pattern is : ^*"<b>year/month/day</b>"*^! {cancel_suggestion()}')
-        bot.register_next_step_handler(msg,ask_date_or_relativetime,tsk)
+        msg=send_message(message.chat.id,str(e)+f'remember the date pattern is : ^*"<b>year/month/day</b>"*^! {cancel_suggestion()}',reply_markup=create_ReplyKeyboard())
+        bot.register_next_step_handler(msg,ask_date_or_relativetime)
         return
     send_message(message.chat.id, 'What time do you want to '
                      + ('trigger' if tsk.is_relative()==False else 'start from')+' ?'
-                        'You should send time format like:^*"<b>hour:minute:second</b>"*^'+cancel_suggestion())
+                        'You should send time format like:^*"<b>hour:minute:second</b>"*^'+cancel_suggestion(),reply_markup=create_ReplyKeyboard())
     bot.register_next_step_handler(msg, ask_time, tsk)
 
 def ask_time(message,tsk):
@@ -186,19 +226,19 @@ def ask_time(message,tsk):
         return
     if is_validate_time_format(text):
         if  tsk.is_relative()==False and is_time_expired(tsk.date_or_relativetime,text):
-            msg = send_message(message.chat.id,'The input time is expired, try enter another time!'+cancel_suggestion())
+            msg = send_message(message.chat.id,'The input time is expired, try enter another time!'+cancel_suggestion(),reply_markup=create_ReplyKeyboard())
             bot.register_next_step_handler(msg,ask_time,tsk)
             return
         tsk.time=text
         msg = send_message(message.chat.id, ('Begin'if tsk.is_relative() else'The date and ')+
                                'time has been taken successfully ')
     else:
-        msg = send_message(message.chat.id, 'The time format or time range was wrong.'
-                                                ' remeber the pattern is "<b>hour:minute:second </b>"')
+        msg = send_message(message.chat.id, f'The time format or time range was wrong.'
+                                                f' remeber the pattern is "<b>hour:minute:second </b>" {cancel_suggestion()}',reply_markup=create_ReplyKeyboard())
         bot.register_next_step_handler(msg,ask_time,tsk)
         return
 
-    send_message(message.chat.id,'Write your description about the task!')
+    send_message(message.chat.id,'Write your description about the task! "<b>cancel</b>" does <u>not work</u> here!!')
     bot.register_next_step_handler(msg, ask_description, tsk)
 
 def ask_description(message,tsk):

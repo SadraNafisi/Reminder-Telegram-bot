@@ -1,12 +1,13 @@
 from datetime import datetime, date, time, timedelta
 import pytz
 import re
-def today_date_string(timezone='Asia/Tehran'):
+timezone='Asia/Tehran'
+def today_date_string(timezone=timezone):
     d=today_date()
     text=f'{d.year}/{d.month}/{d.day}'
     return text
 
-def tomorrow_date_string(timezone='Asia/Tehran'):
+def tomorrow_date_string(timezone=timezone):
     d=tomorrow_date(timezone)
     text=f'{d.year}/{d.month}/{d.day}'
     return text
@@ -21,7 +22,7 @@ def string_to_date(string_date):
 def tomorrow_date(timezone='Asia/Tehran'):
     return today_date(timezone) + timedelta(days=1)
 
-def today_date(timezone='Asia/Tehran'):
+def today_date(timezone=timezone):
     return datetime.now().astimezone(pytz.timezone(timezone)).date()
 
 def extract_date(input):
@@ -30,14 +31,14 @@ def extract_date(input):
     else:
         return input
 
-def is_outdated(input,timezone='Asia/Tehran'):
+def is_outdated(input,timezone=timezone):
     input_date = extract_date(input)
     if input_date>= today_date(timezone):
         return False
     else:
         return True
 
-def is_date_today(input,timezone='Asia/Tehran'):
+def is_date_today(input,timezone=timezone):
     input_date = extract_date(input)
     if input_date == today_date(timezone):
         return True
@@ -88,7 +89,7 @@ def is_validate_time_format(time_string):
     except ValueError:
         return False  # Invalid format
 
-def is_time_expired(date_input,time_input,timezone='Asia/Tehran'):
+def is_time_expired(date_input,time_input,timezone=timezone):
     tz=pytz.timezone(timezone)
     time=extract_time(time_input)
     date=extract_date(date_input)
