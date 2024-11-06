@@ -11,6 +11,25 @@ scheduler.start()
 parse_mod='html'
 bot = telebot.TeleBot('[REDACTED]')
 
+class Task:
+    def __init__(self):
+        self.timetype =''
+        self.date_or_relativetime=''
+        self.time=''
+        self.description=''
+
+    def __str__(self):
+        return (f'time type : {self.timetype}\n'
+                +('relativetime' if self.timetype == "Relative" else 'date')+f' : {self.date_or_relativetime}\n'
+                f'time : {self.time}\n'
+                f'description: ^*{self.description}*^')
+
+    def is_relative(self):
+        if self.timetype == "Relative":
+            return True
+        else:
+            return False
+
 def get_user_lang(chat_id):
     if user_lang.get(chat_id) is None:
         user_lang[chat_id]=selected_language
@@ -33,50 +52,6 @@ def send_message(chat_id, text, parse_mode='html',reply_markup=None):
 
 def cancel_suggestion():
     return '\nYou can cancel proccess by sending "<b>cancel</b>"'
-
-class Task:
-    def __init__(self):
-        self.timetype =''
-        self.date_or_relativetime=''
-        self.time=''
-        self.description=''
-
-    def __str__(self):
-        return (f'time type : {self.timetype}\n'
-                +('relativetime' if self.timetype == "Relative" else 'date')+f' : {self.date_or_relativetime}\n'
-                f'time : {self.time}\n'
-                f'description: ^*{self.description}*^')
-
-    def is_relative(self):
-        if self.timetype == "Relative":
-            return True
-        else:
-            return False
-
-def send_notif(tsk,chat_id):
-    send_message(chat_id,f'alert ⚠️:\n ^*{tsk.description}*^')
-
-def store_task(message,tsk):
-    timezone= 'Asia/Tehran'
-    chat_id = message.chat.id
-    if not(tsk.is_relative()):
-        job=scheduler.add_job(send_notif,'date',run_date=tsk.date_or_relativetime.replace('/', '-')+' '+ tsk.time,
-        args=[tsk, chat_id],timezone=timezone)
-    else:
-        hour,minute,second = tsk.date_or_relativetime.split(':')
-        job = scheduler.add_job(send_notif,'interval',hours=int(hour),minutes=int(minute),seconds=int(second),
-        start_date=datetime.combine((tomorrow_date() if is_time_expired(datetime.now().date(),tsk.time) else datetime.now().date()), string_to_time(tsk.time)),
-        args=[tsk, chat_id],timezone=timezone)
-    if isinstance(tsk, Task):
-        task_table = TaskTable(chat_id=message.chat.id,timetype=tsk.timetype,date_or_relativetime=tsk.date_or_relativetime
-        ,time=tsk.time,description=tsk.description,apscheduler_job_id=job.id)
-        task_table.add_task()
-    else:
-        raise ValueError('The parameter entered in store_task() is not object Task class')
-        return
-    send_message(message.chat.id,'your task has been activated <b>successfully</b>!\n'
-                                     'The task information:\n'
-                                     '<b>'+str(tsk)+'</b>')
 
 def cancel_message(message):
     return send_message(message.chat.id, 'The creating'
@@ -172,19 +147,12 @@ def handle_date_selection(call):
         date_selected = today_date_string()
     else:
         date_selected = tomorrow_date_string()
-
-    # Set the date_or_relativetime in the task
     tsk.date_or_relativetime = date_selected
-
-    # Delete the original message with the inline keyboard
     bot.delete_message(call.message.chat.id, call.message.message_id)
-
-    # Confirm the date selection
     send_message(call.message.chat.id, f'You selected: {date_selected}. Now please enter the time in "<b>hour:minute:second</b>" format.{cancel_suggestion()}',
     reply_markup=create_ReplyKeyboard())
-
-    # Register the next step handler for time input
     bot.register_next_step_handler(call.message, ask_time, tsk)
+
 
 @bot.callback_query_handler(func=lambda call: call.data == 'date')
 def set_date(call):
@@ -245,6 +213,31 @@ def ask_description(message,tsk):
     text = take_meesage_text(message,False)
     tsk.description = text
     store_task(message,tsk)
+
+def store_task(message,tsk):
+    timezone= 'Asia/Tehran'
+    chat_id = message.chat.id
+    if not(tsk.is_relative()):
+        job=scheduler.add_job(send_notif,'date',run_date=tsk.date_or_relativetime.replace('/', '-')+' '+ tsk.time,
+        args=[tsk, chat_id],timezone=timezone)
+    else:
+        hour,minute,second = tsk.date_or_relativetime.split(':')
+        job = scheduler.add_job(send_notif,'interval',hours=int(hour),minutes=int(minute),seconds=int(second),
+        start_date=datetime.combine((tomorrow_date() if is_time_expired(datetime.now().date(),tsk.time) else datetime.now().date())
+        , string_to_time(tsk.time)),args=[tsk, chat_id],timezone=timezone)
+    if isinstance(tsk, Task):
+        task_table = TaskTable(chat_id=message.chat.id,timetype=tsk.timetype,date_or_relativetime=tsk.date_or_relativetime
+        ,time=tsk.time,description=tsk.description,apscheduler_job_id=job.id)
+        task_table.add_task()
+    else:
+        raise ValueError('The parameter entered in store_task() is not object Task class')
+        return
+    send_message(message.chat.id,'your task has been activated <b>successfully</b>!\n'
+                                     'The task information:\n'
+                                     '<b>'+str(tsk)+'</b>')
+
+def send_notif(tsk,chat_id):
+    send_message(chat_id,f'alert ⚠️:\n ^*{tsk.description}*^')
 
 
 @bot.message_handler(commands=['show_tasks'])

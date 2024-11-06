@@ -8,11 +8,27 @@ from sqlalchemy.orm import sessionmaker, validates, relationship
 from pattern import is_valid_date, is_validate_time_format, is_validate_relative_time
 Base = declarative_base()
 # url='[REDACTED]'
-# url = 'database_url' #local_database(postgres)
-url='[REDACTED]'#pythonanywhere_database(mysql)
+url = 'database_url' #local_database(postgres)
+# url='[REDACTED]'#pythonanywhere_database(mysql)
 engine = create_engine(url)
 Session = sessionmaker(bind=engine)
 metadata = Base.metadata
+
+class DatabaseManager:
+    def __init__(self):
+        self.engine = create_engine(url)
+        self.Session = sessionmaker(bind=self.engine)
+        self.metadata = Base.metadata
+
+    def create_tables(self):
+        Base.metadata.create_all(bind=self.engine)
+
+    def get_metadata(self):
+        return self.metadata
+
+    def get_session(self):
+        return self.Session()
+
 
 class TaskTableManagement:
     def create_task(self,tasktable):
@@ -51,21 +67,6 @@ class TaskTableManagement:
                 raise e
 
 
-class DatabaseManager:
-    def __init__(self):
-        self.engine = create_engine(url)
-        self.Session = sessionmaker(bind=self.engine)
-        self.metadata = Base.metadata
-
-    def create_tables(self):
-        Base.metadata.create_all(bind=self.engine)
-
-    def get_metadata(self):
-        return self.metadata
-
-    def get_session(self):
-        return self.Session()
-
 
 class TaskTable(Base):
     __tablename__ = 'tasks'
@@ -93,6 +94,54 @@ class TaskTable(Base):
         TaskTableManagement().create_task(self)
     def delete_task(self):
         TaskTableManagement().remove_task(self)
+
+class UserTableManager:
+    def create_or_update_user(self,usertable):
+        if isinstance(usertable, UserTable):
+            Base.metadata.create_all(engine)
+            with Session() as session:
+                try:
+                    session.add(usertable)
+                    session.commit()
+                except Exception as e:
+                    session.rollback()
+                    raise e
+
+        else:
+            raise ValueError(f'The entry was not UserTable objects type:{type(usertable)}')
+
+    def get_user(self,**kwarg):
+        with Session() as session:
+            user = session.query(UserTable).filter(**kwarg).one_or_none()
+        if len(user)>1:
+            raise ValueError('there are more than one user taken from db!')
+        return user
+
+    def get_or_create_user(self,**kwargs):
+        with Session() as session:
+            instance = session.query(UserTable).filter_by(**kwargs).one_or_none()
+            if instance:
+                return instance, False
+            else:
+                params = {k: v for k, v in kwargs.items()}  
+                instance = UserTable(**params)
+                try:
+                    session.add(instance)
+                    session.commit()
+                except Exception:  # The actual exception depends on the specific database so we catch all exceptions. This is similar to the official documentation: https://docs.sqlalchemy.org/en/latest/orm/session_transaction.html
+                    session.rollback()
+                    instance = session.query(UserTable).filter_by(**kwargs).one()
+                    return instance, False
+                else:
+                    return instance, True
+
+        
+class UserTable(Base):
+    __tablename__ = 'users'
+    chat_id = Column(Integer,primary_key=True)
+    language = Column(Unicode(3),default='en')
+    timezone = Column(Unicode(20),default='Asia/Tehran')
+
 
 
 def takeConfigScheduler():
