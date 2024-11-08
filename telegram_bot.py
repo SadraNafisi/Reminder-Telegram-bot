@@ -1,10 +1,11 @@
-from pattern import is_outdated, is_date_today, is_time_expired, is_validate_relative_time, is_validate_time_format, tomorrow_date
+from pattern import is_outdated, is_date_today, is_time_expired, is_validate_relative_time, is_validate_time_format, tomorrow_date, today_date
 from pattern import string_to_date, string_to_time,today_date_string,tomorrow_date_string
 import telebot
 from telebot import types
 from datetime import datetime,date
-from database import TaskTable, TaskTableManagement, takeConfigScheduler
+from database import TaskTable, TaskTableManagement, takeConfigScheduler, UserTable, UserTableManager
 from translation import translate_with_regex,translate
+import pytz
 
 scheduler = takeConfigScheduler()
 scheduler.start()
@@ -32,8 +33,15 @@ class Task:
 
 def get_user_lang(chat_id):
     if user_lang.get(chat_id) is None:
-        user_lang[chat_id]=selected_language
+        user,status=UserTableManager().get_or_create_user(chat_id=chat_id)
+        user_lang[chat_id]=user.language
     return user_lang[chat_id]
+
+def get_user_tz(chat_id):
+    if user_tz.get(chat_id) is None:
+        user,status = UserTableManager().get_or_create_user(chat_id=chat_id)
+        user_tz[chat_id]=user.timezone
+    return user_tz[chat_id] 
 
 def take_meesage_text(message,translation=True):
     if(get_user_lang(message.chat.id) == 'en') or translation == False :
@@ -62,6 +70,13 @@ def create_ReplyKeyboard(buttons=[]):
         keyboard.add(button)
     keyboard.add(types.KeyboardButton('cancel'))
     return keyboard
+def choose_from_list(arr,number):
+    if not number.isnumeric():
+        raise ValueError(f'The sending text was not a number')
+    elif int(number) not in range(0,len(languages)+1):
+        raise ValueError(f'The sending number is not in options.')
+    else:
+        return arr[int(number)-1]
 
 
 
@@ -73,26 +88,46 @@ def ask_lang(message):
 def set_lang(message):
     text = take_meesage_text(message)
     try:
-        if not text.isnumeric():
-            raise ValueError(f'The sending text was not a number')
-        elif int(text) not in range(0,len(languages)+1):
-            raise ValueError(f'The sending number is not in options.')
-        else:
-            lang = user_lang[message.chat.id] = languages[int(text)-1]
-            send_message(message.chat.id,f'Now the language is ^*{lang}*^.')
+        
+        lang = user_lang[message.chat.id] = choose_from_list(languages,text)
+        UserTableManager().create_or_update_user(UserTable(chat_id=message.chat.id,language=lang))
+        send_message(message.chat.id,f'Now the language is ^*{lang}*^.')
     except ValueError as e:
         msg =send_message(message.chat.id,str(e))
-        bot.register_next_step_handler(msg,ask_lang)
+        ask_lang(msg)
+        return
+    ask_timezone(message)
+def ask_timezone(message):
+    tz=pytz.all_timezones
+    general_tz=['Asia/Tehran','America/Los_Angeles','Europe/Berlin'
+    ,'Europe/Amesterdam','Australia/Sydney','Europe/Paris','Europe/Moscow']
+    # for timezone in general_tz:
+    #     tz.remove(timezone)
+    # tz=general_tz + tz
+    timezones_str=''
+    for index,timezone in enumerate (general_tz):
+        timezones_str += f'{index+1} : {timezone} \n' 
+    msg= send_message(message.chat.id,f'enter your timezone area(continent/capital city):\n{timezones_str}')
+    bot.register_next_step_handler(msg,set_timezone,general_tz)
+def set_timezone(message,tz):
+    text = take_meesage_text(message)
+    try:
+        timezone = user_tz[message.chat.id] = choose_from_list(tz,text)
+        UserTableManager().create_or_update_user(UserTable(chat_id=message.chat.id,timezone=timezone))
+        send_message(message.chat.id,f'The timezone set on {timezone}')
+    except ValueError as e:
+        msg =send_message(message.chat.id,str(e))
+        ask_timezone(msg)
         return
 
-def send_welcome(message):
-    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    item1 = types.KeyboardButton('/add_task')
-    item2 = types.KeyboardButton('/show_tasks')
-    item3 = types.KeyboardButton('/delete_task')
-    markup.add(item1, item2 , item3)
-    send_message(message.chat.id , ''
-                                            'you can see /help for options.' , reply_markup=markup)
+# def send_welcome(message):
+#     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+#     item1 = types.KeyboardButton('/add_task')
+#     item2 = types.KeyboardButton('/show_tasks')
+#     item3 = types.KeyboardButton('/delete_task')
+#     markup.add(item1, item2 , item3)
+#     send_message(message.chat.id , ''
+#                                             'you can see /help for options.' , reply_markup=markup)
 
 
 @bot.message_handler(commands=['add_task'])
@@ -167,7 +202,7 @@ def ask_date_or_relativetime(message):
         cancel_message(message)
         return
     try:
-        if ((tsk.timetype == 'Absolute' and is_outdated(text)==False) or
+        if ((tsk.timetype == 'Absolute' and is_outdated(text,get_user_tz(message.chat.id))==False) or
             (tsk.timetype == 'Relative' and is_validate_relative_time(text))):
             tsk.date_or_relativetime = text
             msg=send_message(message.chat.id, ('Relative' if tsk.is_relative() else 'Absolute')
@@ -184,7 +219,8 @@ def ask_date_or_relativetime(message):
         return
     send_message(message.chat.id, 'What time do you want to '
                      + ('trigger' if tsk.is_relative()==False else 'start from')+' ?'
-                        'You should send time format like:^*"<b>hour:minute:second</b>"*^'+cancel_suggestion(),reply_markup=create_ReplyKeyboard())
+                       f'You should send time format like:^*"<b>hour:minute:second</b>"*^ remember your timezone location is <b>{get_user_tz(message.chat.id)}</b> {cancel_suggestion()}'
+                        ,reply_markup=create_ReplyKeyboard())
     bot.register_next_step_handler(msg, ask_time, tsk)
 
 def ask_time(message,tsk):
@@ -193,7 +229,7 @@ def ask_time(message,tsk):
         cancel_message(message)
         return
     if is_validate_time_format(text):
-        if  tsk.is_relative()==False and is_time_expired(tsk.date_or_relativetime,text):
+        if  tsk.is_relative()==False and is_time_expired(tsk.date_or_relativetime,text,get_user_tz(message.chat.id)):
             msg = send_message(message.chat.id,'The input time is expired, try enter another time!'+cancel_suggestion(),reply_markup=create_ReplyKeyboard())
             bot.register_next_step_handler(msg,ask_time,tsk)
             return
@@ -202,7 +238,7 @@ def ask_time(message,tsk):
                                'time has been taken successfully ')
     else:
         msg = send_message(message.chat.id, f'The time format or time range was wrong.'
-                                                f' remeber the pattern is "<b>hour:minute:second </b>" {cancel_suggestion()}',reply_markup=create_ReplyKeyboard())
+                                            f' remeber the pattern is "<b>hour:minute:second </b>" {cancel_suggestion()}',reply_markup=create_ReplyKeyboard())
         bot.register_next_step_handler(msg,ask_time,tsk)
         return
 
@@ -215,15 +251,15 @@ def ask_description(message,tsk):
     store_task(message,tsk)
 
 def store_task(message,tsk):
-    timezone= 'Asia/Tehran'
     chat_id = message.chat.id
+    timezone=get_user_tz(chat_id)
     if not(tsk.is_relative()):
         job=scheduler.add_job(send_notif,'date',run_date=tsk.date_or_relativetime.replace('/', '-')+' '+ tsk.time,
         args=[tsk, chat_id],timezone=timezone)
     else:
         hour,minute,second = tsk.date_or_relativetime.split(':')
         job = scheduler.add_job(send_notif,'interval',hours=int(hour),minutes=int(minute),seconds=int(second),
-        start_date=datetime.combine((tomorrow_date() if is_time_expired(datetime.now().date(),tsk.time) else datetime.now().date())
+        start_date=datetime.combine((tomorrow_date() if is_time_expired(today_date(timezone),tsk.time,timezone) else today_date(timezone))
         , string_to_time(tsk.time)),args=[tsk, chat_id],timezone=timezone)
     if isinstance(tsk, Task):
         task_table = TaskTable(chat_id=message.chat.id,timetype=tsk.timetype,date_or_relativetime=tsk.date_or_relativetime
@@ -245,10 +281,16 @@ def list_tasks(message):
     tasks=TaskTableManagement().get_tasks_by_chat_id(message.chat.id)
     msg=''
     if tasks:
-        msg='Task format: time type | date/relative time | description\n'
+        msg='Your Tasks:\n'
         counter=1
         for task in tasks:
-            msg +=f'{counter}- {task.timetype} | {task.date_or_relativetime} | ^*{task.description}*^\n'
+            msg +=f'{counter}- time type:<b>{task.timetype}</b> '
+            if task.timetype == 'Absolute':
+                msg +=f'| date & time: <b>{task.date_or_relativetime}</b> <b>{task.time}</b> '
+                
+            else:
+                msg +=f'| repeating time: <b>{task.date_or_relativetime}</b> | begin: <b>{task.time}</b> '
+            msg+=f'| desciption: <b>^*{task.description}*^</b>\n'
             counter+=1
     else:
         msg='You dont have any task yet!'
@@ -283,7 +325,7 @@ def choose_deleted_task(message,tasks):
         else:
             task=tasks[int(text)-1]
     except Exception as e:
-        msg=send_message(message.chat.id,e)
+        msg=send_message(message.chat.id,str(e))
         bot.register_next_step_handler(msg,choose_deleted_task,tasks)
         return
     candidate_delete_task(message.chat.id,task)
@@ -319,8 +361,9 @@ def other_messages(message):
 
 if __name__ == '__main__':
     languages=['en','fa']
-    selected_language= languages[0]##default language
+    default_lang= languages[0]##default language
     user_lang={}
+    user_tz={}
     bot.infinity_polling()
 
 

@@ -96,25 +96,31 @@ class TaskTable(Base):
         TaskTableManagement().remove_task(self)
 
 class UserTableManager:
-    def create_or_update_user(self,usertable):
-        if isinstance(usertable, UserTable):
-            Base.metadata.create_all(engine)
-            with Session() as session:
-                try:
-                    session.add(usertable)
-                    session.commit()
-                except Exception as e:
-                    session.rollback()
-                    raise e
+    def create_or_update_user(self, usertable):
+        if not isinstance(usertable, UserTable):
+            raise ValueError(f'The entry was not UserTable objects type: {type(usertable)}')
+        Base.metadata.create_all(engine)
+        session = Session()
+        try:
+            instance = session.query(UserTable).filter_by(chat_id=usertable.chat_id).one_or_none()
+            if instance:
+                for key, value in usertable.__dict__.items():
+                    if key != '_sa_instance_state':  # Skip SQLAlchemy internal state
+                        setattr(instance, key, value)
+            else:
+                # Add new user
+                session.add(usertable)
 
-        else:
-            raise ValueError(f'The entry was not UserTable objects type:{type(usertable)}')
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
 
     def get_user(self,**kwarg):
         with Session() as session:
-            user = session.query(UserTable).filter(**kwarg).one_or_none()
-        if len(user)>1:
-            raise ValueError('there are more than one user taken from db!')
+            user = session.query(UserTable).filter_by(**kwarg).one_or_none()
         return user
 
     def get_or_create_user(self,**kwargs):
@@ -141,6 +147,10 @@ class UserTable(Base):
     chat_id = Column(Integer,primary_key=True)
     language = Column(Unicode(3),default='en')
     timezone = Column(Unicode(20),default='Asia/Tehran')
+
+    def save(self):
+        UserTableManager().create_or_update_user(self)
+        
 
 
 
