@@ -1,4 +1,8 @@
 #!/bin/bash
-echo "today is " `date`
-python ~/Reminder_timer/database.py
-python ~/Reminder_timer/telegram_bot.py
+
+SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+
+echo "today is $(date)"
+source "$SCRIPT_DIR/.venv/bin/activate"
+python "$SCRIPT_DIR/database.py"
+python "$SCRIPT_DIR/telegram_bot.py"
