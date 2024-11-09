@@ -34,14 +34,18 @@ class Task:
 def get_user_lang(chat_id):
     if user_lang.get(chat_id) is None:
         user,status=UserTableManager().get_or_create_user(chat_id=chat_id)
+        if status:
+            user = UserTableManager().get_user(chat_id=chat_id)
         user_lang[chat_id]=user.language
     return user_lang[chat_id]
 
 def get_user_tz(chat_id):
     if user_tz.get(chat_id) is None:
         user,status = UserTableManager().get_or_create_user(chat_id=chat_id)
+        if status:
+            user = UserTableManager().get_user(chat_id=chat_id)
         user_tz[chat_id]=user.timezone
-    return user_tz[chat_id] 
+    return user_tz[chat_id]
 
 def take_meesage_text(message,translation=True):
     if(get_user_lang(message.chat.id) == 'en') or translation == False :
@@ -88,7 +92,7 @@ def ask_lang(message):
 def set_lang(message):
     text = take_meesage_text(message)
     try:
-        
+
         lang = user_lang[message.chat.id] = choose_from_list(languages,text)
         UserTableManager().create_or_update_user(UserTable(chat_id=message.chat.id,language=lang))
         send_message(message.chat.id,f'Now the language is ^*{lang}*^.')
@@ -106,7 +110,7 @@ def ask_timezone(message):
     # tz=general_tz + tz
     timezones_str=''
     for index,timezone in enumerate (general_tz):
-        timezones_str += f'{index+1} : {timezone} \n' 
+        timezones_str += f'{index+1} : {timezone} \n'
     msg= send_message(message.chat.id,f'enter your timezone area(continent/capital city):\n{timezones_str}')
     bot.register_next_step_handler(msg,set_timezone,general_tz)
 def set_timezone(message,tz):
@@ -287,7 +291,7 @@ def list_tasks(message):
             msg +=f'{counter}- time type:<b>{task.timetype}</b> '
             if task.timetype == 'Absolute':
                 msg +=f'| date & time: <b>{task.date_or_relativetime}</b> <b>{task.time}</b> '
-                
+
             else:
                 msg +=f'| repeating time: <b>{task.date_or_relativetime}</b> | begin: <b>{task.time}</b> '
             msg+=f'| desciption: <b>^*{task.description}*^</b>\n'
@@ -361,7 +365,6 @@ def other_messages(message):
 
 if __name__ == '__main__':
     languages=['en','fa']
-    default_lang= languages[0]##default language
     user_lang={}
     user_tz={}
     bot.infinity_polling()

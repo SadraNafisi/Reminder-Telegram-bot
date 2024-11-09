@@ -8,8 +8,8 @@ from sqlalchemy.orm import sessionmaker, validates, relationship
 from pattern import is_valid_date, is_validate_time_format, is_validate_relative_time
 Base = declarative_base()
 # url='[REDACTED]'
-url = 'database_url' #local_database(postgres)
-# url='[REDACTED]'#pythonanywhere_database(mysql)
+# url = 'database_url' #local_database(postgres)
+url='[REDACTED]'#pythonanywhere_database(mysql)
 engine = create_engine(url)
 Session = sessionmaker(bind=engine)
 metadata = Base.metadata
@@ -95,11 +95,20 @@ class TaskTable(Base):
     def delete_task(self):
         TaskTableManagement().remove_task(self)
 
+class UserTable(Base):
+    __tablename__ = 'users'
+    chat_id = Column(Integer,primary_key=True)
+    language = Column(Unicode(3),default='en')
+    timezone = Column(Unicode(20),default='Asia/Tehran')
+
+    def save(self):
+        UserTableManager().create_or_update_user(self)
+
 class UserTableManager:
     def create_or_update_user(self, usertable):
+        Base.metadata.create_all(engine)
         if not isinstance(usertable, UserTable):
             raise ValueError(f'The entry was not UserTable objects type: {type(usertable)}')
-        Base.metadata.create_all(engine)
         session = Session()
         try:
             instance = session.query(UserTable).filter_by(chat_id=usertable.chat_id).one_or_none()
@@ -129,7 +138,7 @@ class UserTableManager:
             if instance:
                 return instance, False
             else:
-                params = {k: v for k, v in kwargs.items()}  
+                params = {k: v for k, v in kwargs.items()}
                 instance = UserTable(**params)
                 try:
                     session.add(instance)
@@ -140,18 +149,6 @@ class UserTableManager:
                     return instance, False
                 else:
                     return instance, True
-
-        
-class UserTable(Base):
-    __tablename__ = 'users'
-    chat_id = Column(Integer,primary_key=True)
-    language = Column(Unicode(3),default='en')
-    timezone = Column(Unicode(20),default='Asia/Tehran')
-
-    def save(self):
-        UserTableManager().create_or_update_user(self)
-        
-
 
 
 def takeConfigScheduler():
@@ -167,3 +164,7 @@ def takeConfigScheduler():
         'max_instances': 3
     }
     return BackgroundScheduler(jobstores=jobstores, executors=executors, job_defaults=job_defaults)
+
+if __name__ == '__main__':
+    takeConfigScheduler()
+    Base.metadata.create_all(engine)
