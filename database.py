@@ -71,7 +71,7 @@ class TaskTableManagement:
 class TaskTable(Base):
     __tablename__ = 'tasks'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    chat_id = Column(Integer, nullable=False)
+    chat_id = Column(Integer,ForeignKey('users.chat_id', ondelete='CASCADE'), nullable=False)
     timetype = Column(Unicode(9), nullable=False)
     date_or_relativetime = Column(Unicode(40), nullable=False)
     time = Column(Time, nullable=True)
@@ -81,6 +81,7 @@ class TaskTable(Base):
     __table_args__ = (
         CheckConstraint(timetype.in_(["Relative", "Absolute"]), name='check_timetype'),
     )
+
     @validates('date_or_relativetime')
     def validate_datdb_urle_or_relativetime(self, key, value):
         if self.timetype == 'Absolute':
