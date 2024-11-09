@@ -72,6 +72,10 @@ Installation
 
 **Note**: instead of step 8 and 9 , you can run ``runner.sh`` in a linux terminal.
 
+.. code-block:: bash
+
+  bash runner.sh
+
 Bot Commands
 ==============
 
