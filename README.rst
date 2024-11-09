@@ -58,23 +58,13 @@ Installation
 
   pip install -r requirement.txt
 
-8- run the ``database.py``
-
-.. code-block:: bash
-
-  python database.py
-
-9- run the ``telegram_bot.py`` 
-
-.. code-block:: bash
-
-  python telegram_bot.py
-
-**Note**: instead of step 8 and 9 , you can run ``runner.sh`` in a linux terminal.
+8- Now by running ``runner.sh`` bash script, The bot Begin to work
 
 .. code-block:: bash
 
   bash runner.sh
+
+**NOTE**: after first installation , for rerunnig the telegram bot just do step 8. 
 
 Bot Commands
 ==============
