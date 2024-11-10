@@ -8,8 +8,8 @@ from sqlalchemy.orm import sessionmaker, validates, relationship
 from pattern import is_valid_date, is_validate_time_format, is_validate_relative_time
 Base = declarative_base()
 # url='[REDACTED]'
-url = 'database_url' #local_database(postgres)
-# url='[REDACTED]'#pythonanywhere_database(mysql)
+# url = 'database_url' #local_database(postgres)
+url='[REDACTED]'#pythonanywhere_database(mysql)
 engine = create_engine(url)
 Session = sessionmaker(bind=engine)
 metadata = Base.metadata
@@ -86,14 +86,14 @@ class TaskTableManagement:
 class TaskTable(Base):
     __tablename__ = 'tasks'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    chat_id = Column(Integer, nullable=False)
+    chat_id = Column(Integer, ForeignKey('users', ondelete='CASCADE'),nullable=False)
     timetype = Column(Unicode(9), nullable=False)
     date_or_relativetime = Column(Unicode(40), nullable=False)
     time = Column(Time, nullable=True)
     description = Column(TEXT, nullable=False)
     apscheduler_job_id = Column(Unicode(191), ForeignKey('apscheduler_jobs.id', ondelete='CASCADE',), unique=True, nullable=False)
+    job = relationship("Job", back_populates="task", single_parent=True, cascade="all, delete-orphan", uselist=False)
 
-    job=relationship(jobstore.jobs_t,backref='task', cascade="all, delete-orphan")
     __table_args__ = (
         CheckConstraint(timetype.in_(["Relative", "Absolute"]), name='check_timetype'),
     )
@@ -110,6 +110,12 @@ class TaskTable(Base):
         TaskTableManagement().create_task(self)
     def delete_task(self):
         TaskTableManagement().remove_task(self)
+
+class Job(Base):
+    __table__ = jobstore.jobs_t  # Use the Table object directly
+
+    # Establish the back reference to TaskTable
+    task = relationship("TaskTable", back_populates="job", cascade="all, delete-orphan", uselist=False)
 
 class UserTable(Base):
     __tablename__ = 'users'
