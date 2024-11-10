@@ -8,11 +8,26 @@ from sqlalchemy.orm import sessionmaker, validates, relationship
 from pattern import is_valid_date, is_validate_time_format, is_validate_relative_time
 Base = declarative_base()
 # url='[REDACTED]'
-# url = 'database_url' #local_database(postgres)
-url='[REDACTED]'#pythonanywhere_database(mysql)
+url = 'database_url' #local_database(postgres)
+# url='[REDACTED]'#pythonanywhere_database(mysql)
 engine = create_engine(url)
 Session = sessionmaker(bind=engine)
 metadata = Base.metadata
+
+jobstore=SQLAlchemyJobStore(engine=create_engine(url), metadata=Base.metadata)
+def takeConfigScheduler():
+    jobstores = {
+        'default': jobstore
+    }
+    executors = {
+        'default': ThreadPoolExecutor(2),
+        'processpool': ProcessPoolExecutor(1)
+    }
+    job_defaults = {
+        'coalesce': False,
+        'max_instances': 3
+    }
+    return BackgroundScheduler(jobstores=jobstores, executors=executors, job_defaults=job_defaults)
 
 class DatabaseManager:
     def __init__(self):
@@ -71,17 +86,17 @@ class TaskTableManagement:
 class TaskTable(Base):
     __tablename__ = 'tasks'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    chat_id = Column(Integer,ForeignKey('users.chat_id', ondelete='CASCADE'), nullable=False)
+    chat_id = Column(Integer, nullable=False)
     timetype = Column(Unicode(9), nullable=False)
     date_or_relativetime = Column(Unicode(40), nullable=False)
     time = Column(Time, nullable=True)
     description = Column(TEXT, nullable=False)
     apscheduler_job_id = Column(Unicode(191), ForeignKey('apscheduler_jobs.id', ondelete='CASCADE',), unique=True, nullable=False)
 
+    job=relationship(jobstore.jobs_t,backref='task', cascade="all, delete-orphan")
     __table_args__ = (
         CheckConstraint(timetype.in_(["Relative", "Absolute"]), name='check_timetype'),
     )
-
     @validates('date_or_relativetime')
     def validate_datdb_urle_or_relativetime(self, key, value):
         if self.timetype == 'Absolute':
@@ -152,19 +167,6 @@ class UserTableManager:
                     return instance, True
 
 
-def takeConfigScheduler():
-    jobstores = {
-        'default': SQLAlchemyJobStore(engine=create_engine(url), metadata=Base.metadata)
-    }
-    executors = {
-        'default': ThreadPoolExecutor(2),
-        'processpool': ProcessPoolExecutor(1)
-    }
-    job_defaults = {
-        'coalesce': False,
-        'max_instances': 3
-    }
-    return BackgroundScheduler(jobstores=jobstores, executors=executors, job_defaults=job_defaults)
 
 if __name__ == '__main__':
     takeConfigScheduler()
