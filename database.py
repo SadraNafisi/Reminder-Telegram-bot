@@ -89,7 +89,8 @@ class TaskTable(Base):
     chat_id = Column(Integer, ForeignKey('users', ondelete='CASCADE'),nullable=False)
     timetype = Column(Unicode(9), nullable=False)
     date_or_relativetime = Column(Unicode(40), nullable=False)
-    time = Column(Time, nullable=True)
+    time = Column(Time, nullable=False)
+    timezone = Column(Unicode(20), nullable=False)
     description = Column(TEXT, nullable=False)
     apscheduler_job_id = Column(Unicode(191), ForeignKey('apscheduler_jobs.id', ondelete='CASCADE',), unique=True, nullable=False)
 
@@ -111,9 +112,7 @@ class TaskTable(Base):
         TaskTableManagement().remove_task(self)
 
 class Job(Base):
-    __table__ = jobstore.jobs_t  # Use the Table object directly
-
-    # Establish the back reference to TaskTable
+    __table__ = jobstore.jobs_t
 
 
 class JobManager:

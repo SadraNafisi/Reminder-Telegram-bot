@@ -77,7 +77,7 @@ def create_ReplyKeyboard(buttons=[]):
 def choose_from_list(arr,number):
     if not number.isnumeric():
         raise ValueError(f'The sending text was not a number')
-    elif int(number) not in range(0,len(languages)+1):
+    elif int(number) not in range(0,len(arr)+1):
         raise ValueError(f'The sending number is not in options.')
     else:
         return arr[int(number)-1]
@@ -92,7 +92,6 @@ def ask_lang(message):
 def set_lang(message):
     text = take_meesage_text(message)
     try:
-
         lang = user_lang[message.chat.id] = choose_from_list(languages,text)
         UserTableManager().create_or_update_user(UserTable(chat_id=message.chat.id,language=lang))
         send_message(message.chat.id,f'Now the language is ^*{lang}*^.')
@@ -265,17 +264,23 @@ def store_task(message,tsk):
         job = scheduler.add_job(send_notif,'interval',hours=int(hour),minutes=int(minute),seconds=int(second),
         start_date=datetime.combine((tomorrow_date() if is_time_expired(today_date(timezone),tsk.time,timezone) else today_date(timezone))
         , string_to_time(tsk.time)),args=[tsk, chat_id],timezone=timezone)
-    if isinstance(tsk, Task):
-        task_table = TaskTable(chat_id=message.chat.id,timetype=tsk.timetype,date_or_relativetime=tsk.date_or_relativetime
-        ,time=tsk.time,description=tsk.description,apscheduler_job_id=job.id)
-        task_table.add_task()
-        task_id=TaskTableManagement().get_task(apscheduler_job_id=job.id).id
-        jobtable=JobManager().get_job(id=job.id)
-        jobtable.task_id=task_id
-        JobManager().update_job(jobtable)
-    else:
-        raise ValueError('The parameter entered in store_task() is not object Task class')
-        return
+    try:
+
+        if isinstance(tsk, Task):
+            task_table = TaskTable(chat_id=message.chat.id,timetype=tsk.timetype,date_or_relativetime=tsk.date_or_relativetime
+            ,time=tsk.time,timezone=get_user_tz(message.chat.id),description=tsk.description,apscheduler_job_id=job.id)
+            task_table.add_task()
+            task_id=TaskTableManagement().get_task(apscheduler_job_id=job.id).id
+            jobtable=JobManager().get_job(id=job.id)
+            jobtable.task_id=task_id
+            JobManager().update_job(jobtable)
+        else:
+            raise ValueError('The parameter entered in store_task() is not object Task class')
+            return
+    except Exception as e:
+        job.remove()
+        print(str(e))
+
     send_message(message.chat.id,'your task has been activated <b>successfully</b>!\n'
                                      'The task information:\n'
                                      '<b>'+str(tsk)+'</b>')
@@ -306,7 +311,7 @@ def give_task_info(task):
 
     else:
         task_info +=f'| repeating time: <b>{task.date_or_relativetime}</b> | begin: <b>{task.time}</b> '
-    task_info +=f'| desciption: <b>^*{task.description}*^</b>\n'
+    task_info +=f'| timezone: <b>{task.timezone}</b> | desciption: <b>^*{task.description}*^</b>\n'
     return task_info
 
 @bot.message_handler(commands=['delete_task'])
