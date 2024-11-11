@@ -3,7 +3,7 @@ from pattern import string_to_date, string_to_time,today_date_string,tomorrow_da
 import telebot
 from telebot import types
 from datetime import datetime,date
-from database import TaskTable, TaskTableManagement, takeConfigScheduler, UserTable, UserTableManager
+from database import TaskTable, TaskTableManagement, takeConfigScheduler, UserTable, UserTableManager,Job
 from translation import translate_with_regex,translate
 import pytz
 

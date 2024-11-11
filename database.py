@@ -113,9 +113,18 @@ class TaskTable(Base):
 
 class Job(Base):
     __table__ = jobstore.jobs_t  # Use the Table object directly
+    chat_id = Column(Integer,ForeignKey('tasks',ondelete='CASCADE'))
 
     # Establish the back reference to TaskTable
     task = relationship("TaskTable", back_populates="job", cascade="all, delete-orphan", uselist=False)
+
+
+class JobManager:
+    def get_job(self,**kwarg):
+        with Session() as session:
+            job = session.query(Job).filter_by(**kwarg).one_or_none()
+            return job
+
 
 class UserTable(Base):
     __tablename__ = 'users'
