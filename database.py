@@ -8,13 +8,14 @@ from sqlalchemy.orm import sessionmaker, validates, relationship
 from pattern import is_valid_date, is_validate_time_format, is_validate_relative_time
 Base = declarative_base()
 # url='[REDACTED]'
-# url = 'database_url' #local_database(postgres)
-url='[REDACTED]'#pythonanywhere_database(mysql)
+url = 'database_url' #local_database(postgres)
+# url='[REDACTED]'#pythonanywhere_database(mysql)
 engine = create_engine(url)
 Session = sessionmaker(bind=engine)
 metadata = Base.metadata
 
 jobstore=SQLAlchemyJobStore(engine=create_engine(url), metadata=Base.metadata)
+jobstore.jobs_t.append_column(Column('chat_id', Integer))
 def takeConfigScheduler():
     jobstores = {
         'default': jobstore
@@ -113,7 +114,6 @@ class TaskTable(Base):
 
 class Job(Base):
     __table__ = jobstore.jobs_t  # Use the Table object directly
-    chat_id = Column(Integer,ForeignKey('tasks',ondelete='CASCADE'))
 
     # Establish the back reference to TaskTable
     task = relationship("TaskTable", back_populates="job", cascade="all, delete-orphan", uselist=False)
@@ -124,7 +124,17 @@ class JobManager:
         with Session() as session:
             job = session.query(Job).filter_by(**kwarg).one_or_none()
             return job
-
+    def update_job(self,job):
+        instance = session.query(Job).filter_by(id = job.id).one_or_none()
+        for key, value in job.__dict__.items():
+            with Session() as session:
+                if key != '_sa_instance_state':  # Skip SQLAlchemy internal state
+                    setattr(instance, key, value)
+                try:
+                    session.commit()
+                except Exception as e:
+                    session.rollback()
+                    print(str(e))
 
 class UserTable(Base):
     __tablename__ = 'users'

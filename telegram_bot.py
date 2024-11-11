@@ -3,7 +3,7 @@ from pattern import string_to_date, string_to_time,today_date_string,tomorrow_da
 import telebot
 from telebot import types
 from datetime import datetime,date
-from database import TaskTable, TaskTableManagement, takeConfigScheduler, UserTable, UserTableManager,Job
+from database import TaskTable, TaskTableManagement, takeConfigScheduler, UserTable, UserTableManager, Job, JobManager
 from translation import translate_with_regex,translate
 import pytz
 
@@ -269,6 +269,9 @@ def store_task(message,tsk):
         task_table = TaskTable(chat_id=message.chat.id,timetype=tsk.timetype,date_or_relativetime=tsk.date_or_relativetime
         ,time=tsk.time,description=tsk.description,apscheduler_job_id=job.id)
         task_table.add_task()
+        jobtable=JobManager().get_job(id=job.id)
+        jobtable.chat_id=chat_id
+        JobManager().update_job(jobtable)
     else:
         raise ValueError('The parameter entered in store_task() is not object Task class')
         return
