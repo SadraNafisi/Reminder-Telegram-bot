@@ -292,19 +292,22 @@ def list_tasks(message):
         msg='Your Tasks:\n'
         counter=1
         for task in tasks:
-            msg +=f'{counter}- time type:<b>{task.timetype}</b> '
-            if task.timetype == 'Absolute':
-                msg +=f'| date & time: <b>{task.date_or_relativetime}</b> <b>{task.time}</b> '
-
-            else:
-                msg +=f'| repeating time: <b>{task.date_or_relativetime}</b> | begin: <b>{task.time}</b> '
-            msg+=f'| desciption: <b>^*{task.description}*^</b>\n'
+            msg +=f'{counter}- {give_task_info(task)}'
             counter+=1
     else:
         msg='You dont have any task yet!'
     send_message(message.chat.id, msg)
     return tasks
 
+def give_task_info(task):
+    task_info=f'time type:<b>{task.timetype}</b> '
+    if task.timetype == 'Absolute':
+            task_info +=f'| date & time: <b>{task.date_or_relativetime}</b> <b>{task.time}</b> '
+
+    else:
+        task_info +=f'| repeating time: <b>{task.date_or_relativetime}</b> | begin: <b>{task.time}</b> '
+    task_info +=f'| desciption: <b>^*{task.description}*^</b>\n'
+    return task_info
 
 @bot.message_handler(commands=['delete_task'])
 def ask_delete_task(message):
@@ -319,7 +322,7 @@ def ask_delete_task(message):
         return
 
 def candidate_delete_task(chat_id,task):
-    msg = send_message(chat_id,f'Chosen task\n\n time type:{task.timetype} | date/relativetime:{task.date_or_relativetime} | description:^*{task.description}*^\n\n'
+    msg = send_message(chat_id,f'Chosen task\n\n {give_task_info(task)}\n\n'
     'Are you sure you want to delete that?(y/n)')
     bot.register_next_step_handler(msg,delete_task,task)
 

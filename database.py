@@ -181,8 +181,9 @@ class UserTableManager:
                 try:
                     session.add(instance)
                     session.commit()
-                except Exception:  # The actual exception depends on the specific database so we catch all exceptions. This is similar to the official documentation: https://docs.sqlalchemy.org/en/latest/orm/session_transaction.html
+                except Exception as e:  # The actual exception depends on the specific database so we catch all exceptions. This is similar to the official documentation: https://docs.sqlalchemy.org/en/latest/orm/session_transaction.html
                     session.rollback()
+                    print(str(e))
                     instance = session.query(UserTable).filter_by(**kwargs).one()
                     return instance, False
                 else:
