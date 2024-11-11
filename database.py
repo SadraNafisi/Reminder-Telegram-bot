@@ -8,14 +8,13 @@ from sqlalchemy.orm import sessionmaker, validates, relationship
 from pattern import is_valid_date, is_validate_time_format, is_validate_relative_time
 Base = declarative_base()
 # url='[REDACTED]'
-url = 'database_url' #local_database(postgres)
-# url='[REDACTED]'#pythonanywhere_database(mysql)
+# url = 'database_url' #local_database(postgres)
+url='[REDACTED]'#pythonanywhere_database(mysql)
 engine = create_engine(url)
 Session = sessionmaker(bind=engine)
 metadata = Base.metadata
-
 jobstore=SQLAlchemyJobStore(engine=create_engine(url), metadata=Base.metadata)
-jobstore.jobs_t.append_column(Column('chat_id', Integer))
+jobstore.jobs_t.append_column(Column('task_id',Integer, ForeignKey('tasks.id',ondelete='CASCADE'),unique=True))
 def takeConfigScheduler():
     jobstores = {
         'default': jobstore
@@ -59,9 +58,9 @@ class TaskTableManagement:
                     raise e
         else:
             raise ValueError(f'the entry was not Tasktable object:{type(tasktable)}')
-    def get_task(self,task_id):
+    def get_task(self,**kwarg):
         with Session() as session:
-            task=session.query(TaskTable).filter(TaskTable.id==task_id).first()
+            task=session.query(TaskTable).filter_by(**kwarg).one_or_none()
             return task
 
     def get_tasks_by_chat_id(self, chat_id):
@@ -93,7 +92,6 @@ class TaskTable(Base):
     time = Column(Time, nullable=True)
     description = Column(TEXT, nullable=False)
     apscheduler_job_id = Column(Unicode(191), ForeignKey('apscheduler_jobs.id', ondelete='CASCADE',), unique=True, nullable=False)
-    job = relationship("Job", back_populates="task", single_parent=True, cascade="all, delete-orphan", uselist=False)
 
     __table_args__ = (
         CheckConstraint(timetype.in_(["Relative", "Absolute"]), name='check_timetype'),
@@ -116,7 +114,6 @@ class Job(Base):
     __table__ = jobstore.jobs_t  # Use the Table object directly
 
     # Establish the back reference to TaskTable
-    task = relationship("TaskTable", back_populates="job", cascade="all, delete-orphan", uselist=False)
 
 
 class JobManager:
@@ -125,9 +122,9 @@ class JobManager:
             job = session.query(Job).filter_by(**kwarg).one_or_none()
             return job
     def update_job(self,job):
-        instance = session.query(Job).filter_by(id = job.id).one_or_none()
-        for key, value in job.__dict__.items():
-            with Session() as session:
+        with Session() as session:
+            instance = session.query(Job).filter_by(id = job.id).one_or_none()
+            for key, value in job.__dict__.items():
                 if key != '_sa_instance_state':  # Skip SQLAlchemy internal state
                     setattr(instance, key, value)
                 try:
@@ -194,5 +191,4 @@ class UserTableManager:
 
 
 if __name__ == '__main__':
-    takeConfigScheduler()
     Base.metadata.create_all(engine)

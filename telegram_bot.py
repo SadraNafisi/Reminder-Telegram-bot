@@ -269,8 +269,9 @@ def store_task(message,tsk):
         task_table = TaskTable(chat_id=message.chat.id,timetype=tsk.timetype,date_or_relativetime=tsk.date_or_relativetime
         ,time=tsk.time,description=tsk.description,apscheduler_job_id=job.id)
         task_table.add_task()
+        task_id=TaskTableManagement().get_task(apscheduler_job_id=job.id).id
         jobtable=JobManager().get_job(id=job.id)
-        jobtable.chat_id=chat_id
+        jobtable.task_id=task_id
         JobManager().update_job(jobtable)
     else:
         raise ValueError('The parameter entered in store_task() is not object Task class')
