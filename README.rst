@@ -26,7 +26,7 @@ Installation
 
 .. code-block:: bash
 
-  git clone https://github.com/SadraNafisi/Reminder_timer.git
+  git clone https://github.com/SadraNafisi/Reminder-timer-bot.git
   cd Reminder_timer
 
 2- Obtain a bot in telegram from a bot called `BotFather <https://t.me/botfather>`_
