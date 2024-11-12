@@ -74,10 +74,11 @@ def create_ReplyKeyboard(buttons=[]):
         keyboard.add(button)
     keyboard.add(types.KeyboardButton('cancel'))
     return keyboard
+
 def choose_from_list(arr,number):
     if not number.isnumeric():
         raise ValueError(f'The sending text was not a number')
-    elif int(number) not in range(0,len(arr)+1):
+    elif int(number) not in range(1,len(arr)+1):
         raise ValueError(f'The sending number is not in options.')
     else:
         return arr[int(number)-1]
@@ -187,7 +188,8 @@ def handle_date_selection(call):
         date_selected = tomorrow_date_string()
     tsk.date_or_relativetime = date_selected
     bot.delete_message(call.message.chat.id, call.message.message_id)
-    send_message(call.message.chat.id, f'You selected: {date_selected}. Now please enter the time in "<b>hour:minute:second</b>" format.{cancel_suggestion()}',
+    send_message(call.message.chat.id, f'You selected: {date_selected}. Now please enter the time in "<b>hour:minute:second</b>" format.'
+    f'remember your timezone location is <b>{get_user_tz(call.message.chat.id)}</b> {cancel_suggestion()}',
     reply_markup=create_ReplyKeyboard())
     bot.register_next_step_handler(call.message, ask_time, tsk)
 
@@ -334,12 +336,7 @@ def candidate_delete_task(chat_id,task):
 def choose_deleted_task(message,tasks):
     try:
         text = take_meesage_text(message)
-        if not text.isnumeric():
-            raise ValueError('That was not a number, try again! ')
-        elif int(text)> len(tasks) or int(text)<1:
-            raise ValueError('Your input number was wrong, try again! ')
-        else:
-            task=tasks[int(text)-1]
+        task=choose_from_list(tasks,text)
     except Exception as e:
         msg=send_message(message.chat.id,str(e))
         bot.register_next_step_handler(msg,choose_deleted_task,tasks)
