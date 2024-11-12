@@ -79,5 +79,7 @@ Example
        <img src="example_images/test1.png" alt="Image 1" style="width: 330px;height:600px;">
        <img src="example_images/test2.png" alt="Image 2" style="width: 330px;height:600px;">
        <img src="example_images/test3.png" alt="Image 3" style="width: 330px;height:600px;">
+       <img src="example_images/test4.png" alt="Image 4" style="width: 330px;height:600px;">
+       <img src="example_images/test5.png" alt="Image 5" style="width: 330px;height:600px;">
    </div>
 
