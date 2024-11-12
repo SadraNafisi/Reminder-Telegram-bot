@@ -1,3 +1,3 @@
 
-database_url='Replace database url here'
-telegram_api_key='Replace telegram api key here'
+database_url='[REDACTED]'
+telegram_api_key='<api_token>'

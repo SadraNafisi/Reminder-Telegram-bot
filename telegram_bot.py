@@ -1,3 +1,4 @@
+from config import telegram_api_key
 from pattern import is_outdated, is_date_today, is_time_expired, is_validate_relative_time, is_validate_time_format, tomorrow_date, today_date
 from pattern import string_to_date, string_to_time,today_date_string,tomorrow_date_string
 import telebot
@@ -10,7 +11,7 @@ import pytz
 scheduler = takeConfigScheduler()
 scheduler.start()
 parse_mod='html'
-bot = telebot.TeleBot('[REDACTED]')
+bot = telebot.TeleBot(telegram_api_key)
 
 class Task:
     def __init__(self):
