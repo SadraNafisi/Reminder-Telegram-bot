@@ -33,17 +33,13 @@ Installation
 
 3- BotFather gives **api-token** when process of creating bot finished. copy that!
 
-4- in ``telegram_bot.py`` instead of ``<api_token>`` paste that::
+4- in ``config.py`` put api_token from BotFather in ``telegram_api_key`` ::
 
-  .
-  .
-  bot = telebot.TeleBot('<api_token>')
+  telegram_api_key='put telegram_api_key here'
 
-5- in ``database.py`` put Database_url instead of ``<database_url>``::
+5- in ``config.py`` also put Database url in ``database_url``::
 
-  .
-  .
-  url=<database_url>
+  database_url='put database url here'
 
 6- create *virtenv* in python and include with **source** command(I named the file .venv, it is optional name):
 
