@@ -1,6 +1,8 @@
 APScheduler==3.10.4
+beautifulsoup4==4.12.3
 certifi==2024.8.30
 charset-normalizer==3.4.0
+deep-translator==1.11.4
 greenlet==3.1.1
 idna==3.10
 psycopg2==2.9.9
@@ -8,6 +10,7 @@ pyTelegramBotAPI==4.23.0
 pytz==2024.2
 requests==2.32.3
 six==1.16.0
+soupsieve==2.6
 SQLAlchemy==2.0.36
 telebot==0.0.5
 typing_extensions==4.12.2
