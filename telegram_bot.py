@@ -69,6 +69,7 @@ def cancel_suggestion():
 def cancel_message(message):
     return send_message(message.chat.id, 'The creating'
                                          ' task process has been canceled!')
+
 def create_ReplyKeyboard(buttons=[]):
     keyboard=types.ReplyKeyboardMarkup(resize_keyboard=True)
     for button in buttons:
